@@ -8,12 +8,13 @@ import { Login } from "./views/Login.jsx";
 import { OrgSelect } from "./views/OrgSelect.jsx";
 import { ChatView, EvidencePanel } from "./views/Chat.jsx";
 import { KBView } from "./views/KB.jsx";
+import { ToolsView } from "./views/Tools.jsx";
 import { FileUpload, TextIngest } from "./components/FileUpload.jsx";
 import { useIngest } from "./hooks/useIngest.js";
 
 function Sidebar({ view, setView, user, onLogout, orgId }){
   const items=[
-    ["chat","Chat"],["kb","Knowledge Base"],["ingest","Ingest"],
+    ["chat","Chat"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],
   ];
   return (
     <aside className="sidebar">
@@ -104,6 +105,7 @@ function AppShell({ user, orgs, onLogout }){
             </>
           )}
           {view==="kb" && <KBView/>}
+          {view==="tools" && <ToolsView/>}
           {view==="ingest" && (
             <div>
               <h2>Ingest</h2>

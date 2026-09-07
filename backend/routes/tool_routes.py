@@ -32,8 +32,19 @@ def create():
 
 @tool_bp.get("/tools")
 def list_all():
-    # enriched registry + simple list for compat
     return jsonify({"tools": list_tools(), "registry": list_registry()})
+
+
+@tool_bp.get("/tools/stats")
+def stats():
+    reg = list_registry()
+    return jsonify({
+        "total": len(reg),
+        "verified": sum(1 for t in reg if t.get("status")=="verified"),
+        "unverified": sum(1 for t in reg if t.get("status")=="unverified"),
+        "total_uses": sum(t.get("uses",0) for t in reg),
+        "tools": reg,
+    })
 
 
 @tool_bp.get("/tools/find")
@@ -44,12 +55,13 @@ def find():
 
 
 def handle_ensure(data):
+    from flask import g
     from tools.builder import ensure_tool
     task = (data.get("task") or data.get("q") or "").strip()
     if not task:
         return {"error": "task is required"}, 400
-    res = ensure_tool(task, data.get("sample_input", data.get("args", None)), created_by=data.get("created_by", "agent"))
-    # ensure_tool already logged via its groq calls (via brain service), trace returned for demo
+    org_id = g.get("org_id", data.get("org_id", "default"))
+    res = ensure_tool(task, data.get("sample_input", data.get("args", None)), created_by=data.get("created_by", "agent"), org_id=org_id)
     return res, 200
 
 
