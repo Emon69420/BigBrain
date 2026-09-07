@@ -39,33 +39,76 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
             tool_trace.append(f"judge failed open: {e}")
             decision = "docs" if evidence else "general"
             judge_out = {"decision":decision, "tool_task":""}
-        # act on decision
+        # act on decision — exact hit / chain / single full build (never half-built)
         if decision in ("tool_only","docs_plus_tool"):
             tool_task = (judge_out.get("tool_task") or text).strip()
-            # ensure/build
             try:
+                from tools.factory import score_fit, plan_chain, execute_chain, find_tool
                 from tools.builder import ensure_tool
                 from tools.runner import run_tool
-                t_res = ensure_tool(tool_task, sample_input=None, created_by="auto", org_id=org_id)
-                tool_trace.extend(t_res.get("trace", []))
-                entry = t_res.get("entry")
-                if entry:
-                    args = {}
-                    try:
-                        full = entry.get("full_desc","") or entry.get("desc","")
-                        arg_prompt = f"Tool {entry['name']} expects:\n{full}\nQuery: {text}\nTool task: {tool_task}\nReturn JSON with exact arg names only. Numbers only. Return JSON only."
-                        raw,_ = _brain.chat_full("groq-llm", [{"role":"user","content":arg_prompt}])
-                        import json, re
-                        m=re.search(r"\{.*\}", raw, re.S)
-                        if m: args=json.loads(m.group(0))
-                    except: args={}
-                    run_res = run_tool(entry["name"], args if args else None)
-                    if run_res.get("ok"):
-                        tool_used = {"name": entry["name"], "hit": t_res.get("hit", False), "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision}
-                        evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True}] + evidence
-                    else:
-                        tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": t_res.get("hit", False), "decision":decision}
-                        tool_trace.append(f"run failed: {run_res.get('error')}")
+                # 1) try single exact hit
+                hit_entry = None
+                for t in __import__('tools.factory', fromlist=['list_registry']).list_registry():
+                    if score_fit(tool_task, t) == "exact":
+                        hit_entry = t
+                        break
+                if hit_entry:
+                    # reuse without building
+                    t_res = {"hit": True, "entry": hit_entry, "trace": [f"exact hit: {hit_entry['name']}"]}
+                    tool_trace.append(t_res["trace"][0])
+                else:
+                    # 2) try chain of exact tools (max 3, validated)
+                    chain = plan_chain(tool_task)
+                    if chain:
+                        tool_trace.append(f"chain proposed: {' -> '.join(s['tool'] for s in chain)}")
+                        # need initial args from query
+                        init_args = {}
+                        try:
+                            # extract initial args for chain via judge's tool_task numbers
+                            import json, re
+                            # use same arg extraction for first step's tool
+                            pass
+                        except: pass
+                        exec_res = execute_chain(chain, initial_args=None)
+                        tool_trace.extend(exec_res.get("trace", []))
+                        if exec_res.get("ok"):
+                            # chain succeeded — synthesize a virtual tool_used
+                            tool_used = {"name": " -> ".join(s["tool"] for s in chain), "hit": True, "uses": 0, "result": str(exec_res["result"]), "decision": decision, "chain": True}
+                            evidence = [{"content": f"Tool chain {' -> '.join(s['tool'] for s in chain)} result: {tool_used['result']}", "doc_id": chain[-1]["tool"], "title": f"tool:{chain[-1]['tool']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "chain": True, "newly_created": False}] + evidence
+                            # skip single-tool path
+                            hit_entry = "CHAIN_DONE"
+                        else:
+                            tool_trace.append(f"chain failed: {exec_res.get('error')} -> fallback to single full build")
+                            hit_entry = None
+                    if hit_entry != "CHAIN_DONE":
+                        # not hit and chain not viable -> build one full tool
+                        if not hit_entry:
+                            t_res = ensure_tool(tool_task, sample_input=None, created_by="auto", org_id=org_id)
+                            tool_trace.extend(t_res.get("trace", []))
+                            hit_entry = t_res.get("entry")
+                            t_hit = t_res.get("hit", False)
+                        else:
+                            t_hit = True
+                            t_res = {"hit": True}
+                        if hit_entry and hit_entry != "CHAIN_DONE":
+                            entry = hit_entry
+                            args = {}
+                            try:
+                                full = entry.get("full_desc","") or entry.get("desc","")
+                                arg_prompt = f"Tool {entry['name']} expects:\n{full}\nQuery: {text}\nTool task: {tool_task}\nReturn JSON with exact arg names only. Numbers only. Return JSON only."
+                                raw,_ = _brain.chat_full("groq-llm", [{"role":"user","content":arg_prompt}])
+                                import json, re
+                                m=re.search(r"\{.*\}", raw, re.S)
+                                if m: args=json.loads(m.group(0))
+                            except: args={}
+                            run_res = run_tool(entry["name"], args if args else None)
+                            newly = not t_hit
+                            if run_res.get("ok"):
+                                tool_used = {"name": entry["name"], "hit": t_hit, "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": newly}
+                                evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "newly_created": newly}] + evidence
+                            else:
+                                tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": t_hit, "decision":decision, "newly_created": newly}
+                                tool_trace.append(f"run failed: {run_res.get('error')}")
             except Exception as e:
                 tool_trace.append(f"tool auto failed: {e}")
         elif decision == "general":

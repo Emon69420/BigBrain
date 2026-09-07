@@ -21,7 +21,7 @@ tools:
     Returns: product'
   status: unverified
   version: 1
-  uses: 1
+  uses: 3
   created_by: user
 - name: simulate_blast_load_on
   path: backend/tools/custom/simulate_blast_load_on.py
@@ -102,18 +102,6 @@ tools:
   version: 1
   uses: 3
   created_by: auto
-- name: multiply_and_to_find
-  path: backend/tools/custom/multiply_and_to_find.py
-  desc: kWh consumption calculator - computes remaining energy percentage
-  full_desc: 'kWh consumption calculator - computes remaining energy percentage
-
-    Args: none
-
-    Returns: remaining_percentage (float)'
-  status: unverified
-  version: 1
-  uses: 0
-  created_by: auto
 - name: write_a_python_function
   path: backend/tools/custom/write_a_python_function.py
   desc: List sorter - returns a sorted copy of the input list
@@ -125,4 +113,16 @@ tools:
   status: unverified
   version: 1
   uses: 1
+  created_by: auto
+- name: calculate_factorial_of
+  path: backend/tools/custom/calculate_factorial_of.py
+  desc: Factorial calculator - computes factorial of a given integer
+  full_desc: 'Factorial calculator - computes factorial of a given integer
+
+    Args: n (int) - integer to compute factorial for (default 5)
+
+    Returns: result (int) - factorial of n'
+  status: unverified
+  version: 1
+  uses: 2
   created_by: auto

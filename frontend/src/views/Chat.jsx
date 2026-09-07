@@ -31,7 +31,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
                   <span className="badge" style={m.general_knowledge ? {background:"var(--warning)", color:"#000", borderColor:"#f59e0b"} : {background:"var(--accent-soft)", borderColor:"var(--accent)"}}>
                     {m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}
                   </span>
-                  {m.tool_used && <span className="badge" style={{background:"#1e293b", color:"#fff", borderColor:"#334155"}}>Tool {m.tool_used.hit?"hit":"built"}: {m.tool_used.name} {m.tool_used.hit?`(uses ${m.tool_used.uses}, 0 rebuild)`:""}</span>}
+                  {m.tool_used && <span className="badge" style={{background: m.tool_used.newly_created ? "#7c3aed" : "#1e293b", color:"#fff", borderColor: m.tool_used.newly_created ? "#6d28d9" : "#334155"}}>Tool {m.tool_used.hit?"hit":"built"}: {m.tool_used.name} {m.tool_used.newly_created ? "(newly created)" : m.tool_used.hit?`(uses ${m.tool_used.uses}, 0 rebuild)`:""} {m.tool_used.chain ? "· chain" : ""}</span>}
                   {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
                 </div>
                 {m.tool_trace?.length>0 && <div className="small muted" style={{marginTop:6, fontFamily:"var(--mono)", fontSize:11}}>{m.tool_trace.join(" → ")}</div>}
@@ -60,8 +60,8 @@ export function EvidencePanel({ open, onClose, msg, highlightDoc }){
       {!msg && <div style={{padding:16, color:"var(--muted)"}}>Select ⓘ on a message.</div>}
       {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}>No sources — this answer used general knowledge (no matching docs).</div>}
       {msg?.evidence?.map((e,i)=>(
-        <div key={i} className="card" style={{margin:12, borderColor: highlightDoc===e.doc_id?"var(--accent)":"var(--line)", background: highlightDoc===e.doc_id?"var(--accent-soft)":"var(--panel)"}}>
-          <div style={{fontSize:12, color:"var(--muted)"}}>[doc:{e.doc_id}] {e.title} {e.distance!=null && `· dist ${Number(e.distance).toFixed(3)}`}</div>
+        <div key={i} className="card" style={{margin:12, borderColor: highlightDoc===String(e.doc_id)?"var(--accent)": e.tool ? (e.newly_created?"#7c3aed":"#1e293b") : "var(--line)", background: highlightDoc===String(e.doc_id)?"var(--accent-soft)": e.tool ? (e.newly_created?"#f5f3ff":"#f8fafc") : "var(--panel)"}}>
+          <div style={{fontSize:12, color:"var(--muted)"}}>{e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} {e.title} {e.tool ? <span style={{background:e.newly_created?"#7c3aed":"#1e293b", color:"#fff", padding:"1px 6px", borderRadius:6, fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· dist ${Number(e.distance).toFixed(3)}`)}</div>
           <div style={{marginTop:6, whiteSpace:"pre-wrap", fontSize:14}}>{e.content}</div>
         </div>
       ))}
