@@ -10,7 +10,11 @@ def handle_ask(data):
     if not text:
         return {"error": "text is required"}, 400
     dept = (data or {}).get("user_dept", "operations")
-    retrieve = bool((data or {}).get("retrieve"))
+    # default grounded=True; pass retrieve:false only to explicitly disable RAG
+    retrieve = (data or {}).get("retrieve", True)
+    if retrieve is None:
+        retrieve = True
+    retrieve = bool(retrieve)
     out = ask_question(text, dept, org_id=g.get("org_id", "default"), retrieve=retrieve)
     return out, 200
 

@@ -1,26 +1,33 @@
 """Brain service — reusable business logic. Routes call this, never Groq directly."""
 from config import load_registry
 from brain.groq_provider import GroqBrain
+from brain.prompts import build_rag_prompt
 from utils.observability import new_request_id, log_llm_call, timed, elapsed_ms
 
 _registry = load_registry()
 _brain = GroqBrain(_registry)
 
 
-def ask_question(text, user_dept="operations", org_id="default", request_id=None, retrieve=False):
-    """Full ask pipeline. Returns dict the route sends as JSON. Logs every call."""
+def ask_question(text, user_dept="operations", org_id="default", request_id=None, retrieve=True):
+    """Full ask pipeline. RAG-grounded by default. Returns answer + evidence. Logs every call."""
     request_id = request_id or new_request_id()
     task = _brain.classify_task(text)
     model_key = _brain.route(task)
     model_id = _brain.registry.get(model_key, {}).get("model_id", "")
-    prompt = text
     evidence = []
+    grounded = False
     if retrieve:
         try:
             from data.service import vector_search
             evidence = vector_search(text, user_dept, limit=5, org_id=org_id)
         except Exception:
             evidence = []
+    # Grounded prompt when evidence path is on
+    if retrieve:
+        prompt = build_rag_prompt(text, evidence)
+        grounded = True
+    else:
+        prompt = text
     t0 = timed()
     try:
         answer, usage = _brain.chat_full(model_key, [{"role": "user", "content": prompt}])
@@ -37,9 +44,8 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
         "task": task, "model": model_key, "model_id": model_id,
         "answer": answer, "mode": "harness-groq+localpg",
         "request_id": request_id, "org_id": org_id,
+        "grounded": grounded, "evidence": evidence if retrieve else [],
     }
-    if retrieve:
-        out["evidence"] = evidence
     return out
 
 
