@@ -34,6 +34,13 @@ def list_docs(org_id="default"):
     return [{"id": r[0], "title": r[1], "dept": r[2], "class": r[3]} for r in rows]
 
 
+def delete_doc(doc_id, org_id):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("DELETE FROM documents WHERE id=%s AND org_id=%s RETURNING id;", (doc_id, org_id))
+    row = cur.fetchone(); conn.commit(); cur.close(); conn.close()
+    return bool(row)
+
+
 def search_docs(query, user_dept="operations", limit=5, org_id="default"):
     """Keyword search (fast, no embeddings) with org + permission filter."""
     conn = get_conn()

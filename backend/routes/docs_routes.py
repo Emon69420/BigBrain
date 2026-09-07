@@ -1,12 +1,26 @@
 """Doc endpoints — thin routes, logic lives in data/service.py."""
-from flask import Blueprint, g, jsonify, request
-from data.service import ingest_doc, list_docs
+from flask import Blueprint, g, jsonify, request, session
+from auth.service import is_member as _is_member
+from data.service import ingest_doc, list_docs, delete_doc
 
 docs_bp = Blueprint("docs", __name__)
 
 
+def _require_org():
+    uid = session.get("user_id")
+    if not uid:
+        return False, jsonify({"error": "not authenticated"}), 401
+    org = g.get("org_id", "default")
+    if not _is_member(uid, org):
+        return False, jsonify({"error": "not a member of this org"}), 403
+    return True, org, uid
+
+
 def handle_ingest(data):
-    org_id = g.get("org_id", "default")
+    ok, res, _ = _require_org()
+    if not ok:
+        return res, res.status_code
+    org_id = res
     content = ((data or {}).get("content") or "").strip()
     if not content:
         return {"error": "content is required"}, 400
@@ -28,5 +42,17 @@ def ingest():
 
 @docs_bp.get("/docs")
 def list_all():
-    return jsonify({"org_id": g.get("org_id", "default"),
-                    "docs": list_docs(g.get("org_id", "default"))})
+    ok, res, _ = _require_org()
+    if not ok:
+        return res
+    return jsonify({"org_id": res, "docs": list_docs(res)})
+
+
+@docs_bp.delete("/docs/<int:doc_id>")
+def remove(doc_id):
+    ok, res, _ = _require_org()
+    if not ok:
+        return res
+    if not delete_doc(doc_id, res):
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"ok": True})
