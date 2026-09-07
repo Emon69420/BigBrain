@@ -18,15 +18,48 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
     grounded = False
     general_knowledge = False
     search_queries=[text]
+    tool_used = None
+    tool_trace = []
     if retrieve:
         try:
             from data.service import hybrid_search
             evidence = hybrid_search(text, user_dept, limit=5, org_id=org_id, queries=[text])
         except Exception:
             evidence = []
+        # --- auto tool: every calculation/physics/coding benefits from a tool (no prompt, no toggle) ---
+        task_is_toolable = task.get("task_type") in {"calculation","coding"} or task.get("modality")=="calc" or any(k in text.lower() for k in ["calculate","compute","simulate","pressure","load","blast","bending","heat transfer","convert"])
+        if task_is_toolable:
+            try:
+                from tools.builder import ensure_tool
+                from tools.runner import run_tool
+                # ensure (reuse saves compute, miss builds)
+                t_res = ensure_tool(text, sample_input=None, created_by="auto", org_id=org_id)
+                tool_trace = t_res.get("trace", [])
+                entry = t_res.get("entry")
+                if entry:
+                    # extract args from query via Groq (lightweight)
+                    args = {}
+                    try:
+                        # parse numbers + units with Groq
+                        arg_prompt = f"Extract args for tool {entry['name']} ({entry['desc']}). Query: {text}. Return JSON only like {{\"charge_kg\":10}}."
+                        raw,_ = _brain.chat_full("groq-slm", [{"role":"user","content":arg_prompt}])
+                        import json, re
+                        m=re.search(r"\{.*\}", raw, re.S)
+                        if m: args=json.loads(m.group(0))
+                    except: args={}
+                    # run if we got anything or tool takes no args
+                    run_res = run_tool(entry["name"], args if args else None)
+                    if run_res.get("ok"):
+                        tool_used = {"name": entry["name"], "hit": t_res.get("hit", False), "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result"))}
+                        # inject as tool evidence so answer can cite [tool:name]
+                        evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True}] + evidence
+                    else:
+                        tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": t_res.get("hit", False)}
+            except Exception as e:
+                tool_trace.append(f"tool auto failed: {e}")
         prompt = build_rag_prompt(text, evidence)
         grounded = True
-        general_knowledge = len(evidence) == 0
+        general_knowledge = len([e for e in evidence if not e.get("tool")]) == 0 and not tool_used
     else:
         prompt = text
         general_knowledge = True
@@ -49,6 +82,8 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
         "grounded": grounded, "general_knowledge": general_knowledge if retrieve else True,
         "evidence": evidence if retrieve else [],
         "search_queries": search_queries if retrieve else [],
+        "tool_used": tool_used,
+        "tool_trace": tool_trace,
     }
     return out
 

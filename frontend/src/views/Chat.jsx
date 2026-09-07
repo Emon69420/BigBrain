@@ -3,10 +3,10 @@ import { SearchBox, SourcesPanel, PhaseIndicator, SourceCard } from "../componen
 
 function renderWithCites(text, onCite){
   if(!text) return null;
-  const parts=text.split(/(\[doc:\d+\])/g);
+  const parts=text.split(/(\[doc:\d+\]|\[tool:[^\]]+\])/g);
   return parts.map((p,i)=>{
-    const m=p.match(/\[doc:(\d+)\]/);
-    if(m) return <a key={i} className="cite" onClick={()=>onCite(Number(m[1]))}>{p}</a>;
+    const m=p.match(/\[(doc|tool):([^\]]+)\]/);
+    if(m) return <a key={i} className="cite" onClick={()=>{ const v=m[2]; const num=Number(v); onCite(isNaN(num)?v:num); }}>{p}</a>;
     return <span key={i}>{p}</span>;
   });
 }
@@ -25,14 +25,16 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
               <div key={m.id} style={{fontSize:18, fontWeight:700, letterSpacing:"-0.01em", marginTop:8}}>{m.content}</div>
             ) : (
               <div key={m.id} className="answer">
-                <div style={{whiteSpace:"pre-wrap"}}>{renderWithCites(m.content, (id)=>{ const idx=ev.findIndex(e=>e.doc_id===id); if(idx>=0) onInfo(m, idx); })}</div>
+                <div style={{whiteSpace:"pre-wrap"}}>{renderWithCites(m.content, (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
                 <div className="meta">
                   {m.model_key && <span className="badge">{m.model_key}</span>}
                   <span className="badge" style={m.general_knowledge ? {background:"var(--warning)", color:"#000", borderColor:"#f59e0b"} : {background:"var(--accent-soft)", borderColor:"var(--accent)"}}>
                     {m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}
                   </span>
+                  {m.tool_used && <span className="badge" style={{background:"#1e293b", color:"#fff", borderColor:"#334155"}}>Tool {m.tool_used.hit?"hit":"built"}: {m.tool_used.name} {m.tool_used.hit?`(uses ${m.tool_used.uses}, 0 rebuild)`:""}</span>}
                   {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
                 </div>
+                {m.tool_trace?.length>0 && <div className="small muted" style={{marginTop:6, fontFamily:"var(--mono)", fontSize:11}}>{m.tool_trace.join(" → ")}</div>}
               </div>
             )
           ))}

@@ -67,7 +67,7 @@ function AppShell({ user, orgs, onLogout }){
       setPhase("reading");
       const ans=await api.askQuestion(text);
       setPhase("writing");
-      await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id});
+      await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id, tool_used:ans.tool_used, tool_trace:ans.tool_trace, general_knowledge:ans.general_knowledge});
       await loadMessages(id);
     } finally{ setAskLoading(false); setTimeout(()=>setPhase(null), 800); }
     loadThreads();
