@@ -44,11 +44,26 @@ class GroqBrain(BrainProvider):
         self.router = registry["router"]
 
     def chat(self, model_key, messages, **kw):
+        return self.chat_full(model_key, messages, **kw)[0]
+
+    def chat_full(self, model_key, messages, **kw):
+        """Returns (text, usage_dict). usage_dict has prompt_tokens etc. Old chat() untouched."""
         resp = self.client.chat.completions.create(
             model=get_model_id(self.registry, model_key),
             messages=messages,
         )
-        return resp.choices[0].message.content
+        text = resp.choices[0].message.content
+        usage = None
+        try:
+            u = getattr(resp, "usage", None)
+            if u:
+                usage = {
+                    "prompt_tokens": getattr(u, "prompt_tokens", None),
+                    "completion_tokens": getattr(u, "completion_tokens", None),
+                }
+        except Exception:
+            pass
+        return text, usage
 
     def classify_task(self, text):
         return classify_task_text(text)

@@ -10,8 +10,8 @@ def handle_ask(data):
     if not text:
         return {"error": "text is required"}, 400
     dept = (data or {}).get("user_dept", "operations")
-    out = ask_question(text, dept)
-    out["org_id"] = g.get("org_id", "default")
+    retrieve = bool((data or {}).get("retrieve"))
+    out = ask_question(text, dept, org_id=g.get("org_id", "default"), retrieve=retrieve)
     return out, 200
 
 
