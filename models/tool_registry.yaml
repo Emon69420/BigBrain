@@ -78,3 +78,27 @@ tools:
   version: 1
   uses: 1
   created_by: agent
+- name: calculate_torque_for_force
+  path: backend/tools/custom/calculate_torque_for_force.py
+  desc: Torque calculator - computes torque from force and lever arm
+  full_desc: 'Torque calculator - computes torque from force and lever arm
+
+    Args: force_N (float), distance_m (float)
+
+    Returns: torque_Nm (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto
+- name: calculate_kinetic_energy_for
+  path: backend/tools/custom/calculate_kinetic_energy_for.py
+  desc: Kinetic energy calculator - computes kinetic energy of a moving object
+  full_desc: 'Kinetic energy calculator - computes kinetic energy of a moving object
+
+    Args: mass (float), velocity (float)
+
+    Returns: kinetic_energy (float)'
+  status: unverified
+  version: 1
+  uses: 2
+  created_by: auto

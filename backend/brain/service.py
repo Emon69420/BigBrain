@@ -37,17 +37,20 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                 tool_trace = t_res.get("trace", [])
                 entry = t_res.get("entry")
                 if entry:
-                    # extract args from query via Groq (lightweight)
+                    # extract args using exact arg names from full_desc
                     args = {}
                     try:
-                        # parse numbers + units with Groq
-                        arg_prompt = f"Extract args for tool {entry['name']} ({entry['desc']}). Query: {text}. Return JSON only like {{\"charge_kg\":10}}."
-                        raw,_ = _brain.chat_full("groq-slm", [{"role":"user","content":arg_prompt}])
+                        full = entry.get("full_desc","") or entry.get("desc","")
+                        arg_prompt = f"Tool {entry['name']} expects:\n{full}\nQuery: {text}\nReturn JSON with exact arg names only, e.g. {{\"charge_kg\":10}}. Numbers only, no units string. Return JSON only."
+                        raw,_ = _brain.chat_full("groq-llm", [{"role":"user","content":arg_prompt}])
                         import json, re
                         m=re.search(r"\{.*\}", raw, re.S)
                         if m: args=json.loads(m.group(0))
+                        # normalize: if model returned generic keys like force/distance, map to actual arg names via fuzzy
+                        if args and entry["name"] not in str(args):
+                            # keep as is; run_tool will error and we surface it
+                            pass
                     except: args={}
-                    # run if we got anything or tool takes no args
                     run_res = run_tool(entry["name"], args if args else None)
                     if run_res.get("ok"):
                         tool_used = {"name": entry["name"], "hit": t_res.get("hit", False), "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result"))}

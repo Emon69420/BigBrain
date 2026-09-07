@@ -102,7 +102,7 @@ def find_tool(task_text):
     q = (task_text or "").lower()
     best = None
     best_score = 0
-    stop = {"calculate","compute","computing","using","across","from","with","wall","load","simulate","pipe","flow","rate"}
+    stop = {"calculate","compute","computing","using","across","from","with","for","and","the"}
     for t in _load_registry()["tools"]:
         blob = (t.get("desc","") + " " + t.get("full_desc","")).lower()
         blob_words = set(re.findall(r"[a-z0-9]+", blob))
