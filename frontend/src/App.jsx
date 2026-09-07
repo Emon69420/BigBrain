@@ -14,7 +14,10 @@ export default function App() {
     ? [
         `Classified: ${result.task.task_type} (${result.task.complexity})`,
         `Routed to: ${result.model}`,
-        "Answer generated",
+        result.grounded
+          ? `Retrieved ${result.evidence?.length ?? 0} chunks from org ${result.org_id}${result.evidence?.length ? "" : " — no match"}`
+          : "Ungrounded (retrieve off)",
+        "Answer generated" + (result.grounded ? " [grounded]" : ""),
       ]
     : [];
   return (
