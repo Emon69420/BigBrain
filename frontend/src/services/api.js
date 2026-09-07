@@ -31,3 +31,14 @@ export async function getHealth() {
 export async function runCode(code) {
   return post("/tools/run", { code });
 }
+
+export async function ingestDoc({ title, content, dept = "operations", docClass = "open" }) {
+  return post("/docs", { title, content, dept, class: docClass });
+}
+
+export async function listDocs() {
+  const r = await fetch(`${BASE}/docs`, { headers: headers() });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || `Request failed (${r.status})`);
+  return data;
+}

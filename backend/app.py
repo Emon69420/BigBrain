@@ -5,6 +5,7 @@ from flask_cors import CORS
 from routes.health_routes import health_bp
 from routes.ask_routes import ask_bp
 from routes.tool_routes import tool_bp
+from routes.docs_routes import docs_bp
 
 ALLOWED_ORIGINS = ["http://localhost:3000"]
 
@@ -33,10 +34,12 @@ def create_app():
     app.register_blueprint(health_bp)
     app.register_blueprint(ask_bp)
     app.register_blueprint(tool_bp)
+    app.register_blueprint(docs_bp)
     return app
 
 
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(port=8000, debug=True)
+    # debug=True with reloader causes endless restarts when torch/tf site-packages change
+    app.run(port=8000, debug=True, use_reloader=False)
