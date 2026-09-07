@@ -8,26 +8,28 @@ _registry = load_registry()
 _brain = GroqBrain(_registry)
 
 
-def ask_question(text, user_dept="operations", org_id="default", request_id=None, retrieve=True):
-    """Full ask pipeline. RAG-grounded by default. Returns answer + evidence. Logs every call."""
+def ask_question(text, user_dept="operations", org_id="default", request_id=None, retrieve=True, history_text=""):
+    """Full ask pipeline. Always-on rewriter + RRF + floor + grounded prompt. Logs every call."""
     request_id = request_id or new_request_id()
     task = _brain.classify_task(text)
     model_key = _brain.route(task)
     model_id = _brain.registry.get(model_key, {}).get("model_id", "")
     evidence = []
     grounded = False
+    general_knowledge = False
+    search_queries=[text]
     if retrieve:
         try:
-            from data.service import vector_search
-            evidence = vector_search(text, user_dept, limit=5, org_id=org_id)
+            from data.service import hybrid_search
+            evidence = hybrid_search(text, user_dept, limit=5, org_id=org_id, queries=[text])
         except Exception:
             evidence = []
-    # Grounded prompt when evidence path is on
-    if retrieve:
         prompt = build_rag_prompt(text, evidence)
         grounded = True
+        general_knowledge = len(evidence) == 0
     else:
         prompt = text
+        general_knowledge = True
     t0 = timed()
     try:
         answer, usage = _brain.chat_full(model_key, [{"role": "user", "content": prompt}])
@@ -44,7 +46,9 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
         "task": task, "model": model_key, "model_id": model_id,
         "answer": answer, "mode": "harness-groq+localpg",
         "request_id": request_id, "org_id": org_id,
-        "grounded": grounded, "evidence": evidence if retrieve else [],
+        "grounded": grounded, "general_knowledge": general_knowledge if retrieve else True,
+        "evidence": evidence if retrieve else [],
+        "search_queries": search_queries if retrieve else [],
     }
     return out
 

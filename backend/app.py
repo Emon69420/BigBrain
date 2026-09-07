@@ -1,4 +1,5 @@
 """BigBrain Flask app — only wires blueprints. No business logic here."""
+import os
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 
@@ -6,17 +7,22 @@ from routes.health_routes import health_bp
 from routes.ask_routes import ask_bp
 from routes.tool_routes import tool_bp
 from routes.docs_routes import docs_bp
+from auth.routes import auth_bp
+from chat.routes import chat_bp
 
 ALLOWED_ORIGINS = ["http://localhost:3000"]
 
 
 def create_app():
     app = Flask(__name__)
-    CORS(app, origins=ALLOWED_ORIGINS)
+    app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
+    CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True,
+         allow_headers=["Content-Type", "X-Org-Id", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         expose_headers=["Content-Type", "X-Org-Id"])
 
     @app.before_request
     def stash_org():
-        # Org scoping: header now, real login maps user->org later.
         g.org_id = request.headers.get("X-Org-Id", "default")
 
     @app.errorhandler(400)
@@ -35,6 +41,8 @@ def create_app():
     app.register_blueprint(ask_bp)
     app.register_blueprint(tool_bp)
     app.register_blueprint(docs_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(chat_bp)
     return app
 
 
