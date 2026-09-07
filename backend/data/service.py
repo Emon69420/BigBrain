@@ -96,8 +96,8 @@ def _rrf(lists, k=60):
     ranked=sorted(scores, key=lambda cid: scores[cid], reverse=True)
     return [by_id[cid] for cid in ranked]
 
-def hybrid_search(query, user_dept="operations", limit=5, org_id="default", queries=None, relevance_floor=0.62):
-    """Multi-query RRF + keyword pin. queries = rewritten list."""
+def hybrid_search(query, user_dept="operations", limit=5, org_id="default", queries=None, relevance_floor=0.35):
+    """Simple RAG: hybrid RRF + keyword pin, low floor so short queries still find docs."""
     queries = queries or [query]
     # embed each query
     ranked_lists=[]
@@ -121,21 +121,13 @@ def hybrid_search(query, user_dept="operations", limit=5, org_id="default", quer
             pinned=it; break
     if pinned and fused[0]["chunk_id"]!=pinned["chunk_id"]:
         fused=[pinned]+[x for x in fused if x["chunk_id"]!=pinned["chunk_id"]]
-    # filter by dept + relevance
+    # filter only by dept — keep top fused regardless of distance (simple working RAG)
     out=[]
     for it in fused:
         if not check_access(user_dept, it["dept"], it["class"]):
             continue
-        # distance None from keyword-only -> keep; vector distance > relevance threshold (converted from distance)
-        if it.get("distance") is not None:
-            sim=1-it["distance"]  # cosine similarity approx
-            if sim < (1-relevance_floor):  # distance 0.8 => sim 0.2 < 0.38 => drop
-                # drop weak matches when we have enough good ones; keep at least 1 if nothing else
-                if len(out) >= 1: 
-                    continue
         out.append(it)
         if len(out)>=limit: break
-    # if all filtered, fallback to keyword docs
     if not out:
         kws=search_docs(query, user_dept, limit, org_id)
         return [{"content":k.get("content",""), "doc_id":k["id"], "title":k["title"], "dept":k["dept"], "class":k["class"], "distance":None, "keyword_hit":True, "chunk_id":k["id"]} for k in kws]

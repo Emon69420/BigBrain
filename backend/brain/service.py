@@ -16,38 +16,20 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
     model_id = _brain.registry.get(model_key, {}).get("model_id", "")
     evidence = []
     grounded = False
+    general_knowledge = False
     search_queries=[text]
-    rewritten=None
     if retrieve:
-        # 1) rewrite
         try:
-            from brain.rewriter import rewrite
-            rewritten=rewrite(text, history_text)
-            if rewritten.get("is_search_required"):
-                search_queries=rewritten.get("queries") or [text]
-            else:
-                search_queries=[]
+            from data.service import hybrid_search
+            evidence = hybrid_search(text, user_dept, limit=5, org_id=org_id, queries=[text])
         except Exception:
-            search_queries=[text]
-        # 2) retrieve only if required, else no evidence (honest no-match)
-        if search_queries:
-            try:
-                from data.service import hybrid_search
-                evidence = hybrid_search(text, user_dept, limit=5, org_id=org_id, queries=search_queries)
-            except Exception:
-                evidence = []
-        # log rewriter even when skipped
-        try:
-            from utils.observability import log_llm_call as _log
-            # rewriter already logged via its own chat_full if needed; store a lightweight row
-        except: pass
-        # 3) grounded prompt
+            evidence = []
         prompt = build_rag_prompt(text, evidence)
         grounded = True
-        # stash rewrite for caller trace
+        general_knowledge = len(evidence) == 0
     else:
         prompt = text
-        rewritten=None
+        general_knowledge = True
     t0 = timed()
     try:
         answer, usage = _brain.chat_full(model_key, [{"role": "user", "content": prompt}])
@@ -64,7 +46,8 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
         "task": task, "model": model_key, "model_id": model_id,
         "answer": answer, "mode": "harness-groq+localpg",
         "request_id": request_id, "org_id": org_id,
-        "grounded": grounded, "evidence": evidence if retrieve else [],
+        "grounded": grounded, "general_knowledge": general_knowledge if retrieve else True,
+        "evidence": evidence if retrieve else [],
         "search_queries": search_queries if retrieve else [],
     }
     return out

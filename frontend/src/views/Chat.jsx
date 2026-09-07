@@ -28,7 +28,10 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
                 <div style={{whiteSpace:"pre-wrap"}}>{renderWithCites(m.content, (id)=>{ const idx=ev.findIndex(e=>e.doc_id===id); if(idx>=0) onInfo(m, idx); })}</div>
                 <div className="meta">
                   {m.model_key && <span className="badge">{m.model_key}</span>}
-                  {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ {m.evidence.length} sources</button>}
+                  <span className="badge" style={m.general_knowledge ? {background:"var(--warning)", color:"#000", borderColor:"#f59e0b"} : {background:"var(--accent-soft)", borderColor:"var(--accent)"}}>
+                    {m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}
+                  </span>
+                  {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
                 </div>
               </div>
             )
@@ -53,7 +56,7 @@ export function EvidencePanel({ open, onClose, msg, highlightDoc }){
         <strong>Evidence</strong><button className="btn" onClick={onClose}>×</button>
       </div>
       {!msg && <div style={{padding:16, color:"var(--muted)"}}>Select ⓘ on a message.</div>}
-      {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}>No sources — model said "Not found in your docs."</div>}
+      {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}>No sources — this answer used general knowledge (no matching docs).</div>}
       {msg?.evidence?.map((e,i)=>(
         <div key={i} className="card" style={{margin:12, borderColor: highlightDoc===e.doc_id?"var(--accent)":"var(--line)", background: highlightDoc===e.doc_id?"var(--accent-soft)":"var(--panel)"}}>
           <div style={{fontSize:12, color:"var(--muted)"}}>[doc:{e.doc_id}] {e.title} {e.distance!=null && `· dist ${Number(e.distance).toFixed(3)}`}</div>
