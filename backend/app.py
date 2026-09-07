@@ -16,7 +16,10 @@ ALLOWED_ORIGINS = ["http://localhost:3000"]
 def create_app():
     app = Flask(__name__)
     app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
-    CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
+    CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True,
+         allow_headers=["Content-Type", "X-Org-Id", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         expose_headers=["Content-Type", "X-Org-Id"])
 
     @app.before_request
     def stash_org():

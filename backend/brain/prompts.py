@@ -16,7 +16,7 @@ User question: {query}
 
 Answer:"""
 
-NO_EVIDENCE_INSTRUCTION = """No relevant evidence was retrieved for this query. Say "Not found in your docs." and suggest which doc to add."""
+NO_EVIDENCE_INSTRUCTION = """No relevant evidence was retrieved (all candidates below relevance). Say "Not found in your docs." and suggest which doc to add."""
 
 
 def format_evidence(evidence):
@@ -24,10 +24,12 @@ def format_evidence(evidence):
         return NO_EVIDENCE_INSTRUCTION
     lines = []
     for e in evidence:
-        # e: {content, doc_id, title, distance?}
         meta = f"[doc:{e['doc_id']}] {e.get('title','')}".strip()
-        if "distance" in e:
-            meta += f" distance={e['distance']:.3f}"
+        if e.get("distance") is not None:
+            try:
+                meta += f" distance={float(e['distance']):.3f}"
+            except:
+                pass
         lines.append(f"{meta}\n{e['content']}")
     return "\n---\n".join(lines)
 
