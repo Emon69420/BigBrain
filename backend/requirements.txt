@@ -1,0 +1,7 @@
+flask
+flask-cors
+pyyaml
+python-dotenv
+groq
+psycopg[binary]
+pgvector

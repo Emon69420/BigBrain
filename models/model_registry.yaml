@@ -1,0 +1,50 @@
+# Brain + Data switches — SIH harness (Groq now, local swap later)
+# Harness never imports groq/vllm/psycopg directly. Only via these switches.
+
+models:
+  # --- HARNESS (cloud, fast iteration) ---
+  - name: groq-slm
+    type: slm
+    provider: groq
+    model_id: llama-3.1-8b-instant
+    tasks: [classification, extraction, short-answer, routing]
+    note: SLM stand-in — fast, cheap. Swap to local 1-3B later.
+
+  - name: groq-llm
+    type: llm
+    provider: groq
+    model_id: llama-3.3-70b-versatile
+    tasks: [reasoning, drafting, summarization, multi-doc, coding]
+    note: LLM stand-in — strong reasoning. Swap to sarvam-7b-q4 local later.
+
+  - name: groq-vision
+    type: vlm
+    provider: groq
+    model_id: meta-llama/llama-4-scout-17b-16e-instruct
+    tasks: [ocr, handwriting, pid]
+    note: Vision stand-in. Swap to qwen2-vl-2b-q4 local later.
+
+  # --- SOVEREIGN (local, Phase LAST — uncomment when GPU ready) ---
+  # - name: sarvam-7b-q4
+  #   type: llm
+  #   provider: local
+  #   engine: vllm
+  #   tasks: [reasoning, drafting, summarization]
+  # - name: slm-3b-q4
+  #   type: slm
+  #   provider: local
+  #   engine: vllm
+  #   tasks: [extraction, classification, short-qa]
+  # - name: qwen2-vl-2b-q4
+  #   type: vlm
+  #   provider: local
+  #   engine: vllm
+  #   tasks: [ocr, handwriting, pid]
+
+router:
+  simple_to: groq-slm
+  complex_to: groq-llm
+  vision_to: groq-vision
+  # Safety override: engineering / approval / safety always -> groq-llm + redteam + human gate
+  safety_override_tasks: [engineering_recommendation, approval_note, safety, high_risk]
+  safety_override_to: groq-llm
