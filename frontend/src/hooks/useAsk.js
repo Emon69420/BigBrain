@@ -5,15 +5,19 @@ import { askQuestion } from "../services/api.js";
 export function useAsk() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
 
   async function ask(text) {
     setLoading(true);
+    setError(null);
     try {
       const data = await askQuestion(text);
       setResult(data);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
   }
-  return { ask, loading, result };
+  return { ask, loading, result, error };
 }

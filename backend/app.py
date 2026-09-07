@@ -1,15 +1,35 @@
 """BigBrain Flask app — only wires blueprints. No business logic here."""
-from flask import Flask
+from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 
 from routes.health_routes import health_bp
 from routes.ask_routes import ask_bp
 from routes.tool_routes import tool_bp
 
+ALLOWED_ORIGINS = ["http://localhost:3000"]
+
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, origins=ALLOWED_ORIGINS)
+
+    @app.before_request
+    def stash_org():
+        # Org scoping: header now, real login maps user->org later.
+        g.org_id = request.headers.get("X-Org-Id", "default")
+
+    @app.errorhandler(400)
+    def bad_request(e):
+        return jsonify({"error": "bad request"}), 400
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return jsonify({"error": "not found"}), 404
+
+    @app.errorhandler(500)
+    def server_error(e):
+        return jsonify({"error": "internal error"}), 500
+
     app.register_blueprint(health_bp)
     app.register_blueprint(ask_bp)
     app.register_blueprint(tool_bp)
