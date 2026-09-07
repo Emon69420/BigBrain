@@ -1,7 +1,13 @@
-// Phase pill: Searching → Reading → Writing, with dot pulse.
+// Phase pill: Searching → Reading → Building tool → Running tool → Writing, with dot pulse.
 export function PhaseIndicator({ phase }){
   if(!phase) return null;
-  const labels={searching:"Searching your docs…", reading:"Reading sources…", writing:"Writing answer…"};
+  const labels={
+    searching:"Searching your docs…",
+    reading:"Reading sources…",
+    building:"Building tool…",
+    running:"Running tool…",
+    writing:"Writing answer…"
+  };
   return (
     <span className="phase-pill">
       <span className="phase-dot"/><span className="phase-dot"/><span className="phase-dot"/>

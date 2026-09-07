@@ -45,7 +45,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
         </div>
       </div>
       <div className="sources-panel">
-        {phase ? <div className="card small muted" style={{display:"grid", gap:8}}><PhaseIndicator phase={phase}/><span>Collecting evidence…</span></div> : <SourcesPanel evidence={ev}/>}
+        {phase ? <div className="card small muted" style={{display:"grid", gap:8}}><PhaseIndicator phase={phase}/><span>{phase==="building"?"Creating tool in sandbox…":phase==="running"?"Executing tool…":"Collecting evidence…"}</span></div> : <SourcesPanel evidence={ev}/>}
       </div>
     </div>
   );

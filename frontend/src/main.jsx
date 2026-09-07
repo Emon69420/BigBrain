@@ -66,8 +66,15 @@ function AppShell({ user, orgs, onLogout }){
     try{
       setPhase("reading");
       const ans=await api.askQuestion(text);
+      // show tool building/running if judge decided to use/build a tool (before writing)
+      if(ans.tool_used){
+        if(!ans.tool_used.hit) setPhase("building");
+        else setPhase("running");
+        // let the pill show for a beat before writing
+        await new Promise(r=>setTimeout(r, ans.tool_used.hit ? 300 : 900));
+      }
       setPhase("writing");
-      await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id, tool_used:ans.tool_used, tool_trace:ans.tool_trace, general_knowledge:ans.general_knowledge});
+      await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id, tool_used:ans.tool_used, tool_trace:ans.tool_trace, general_knowledge:ans.general_knowledge, judge:ans.judge});
       await loadMessages(id);
     } finally{ setAskLoading(false); setTimeout(()=>setPhase(null), 800); }
     loadThreads();
