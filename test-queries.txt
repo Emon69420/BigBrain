@@ -1,0 +1,20 @@
+BigBrain routing test queries — paste into http://localhost:3000 and watch the model badge.
+
+LOW complexity -> groq-slm (fast, small):
+1. What is P-204?
+2. Extract equipment IDs from this report
+3. What is the inspection interval in SOP-17?
+4. Classify this request: pump vibration complaint
+5. List the valve labels
+
+HIGH complexity -> groq-llm (reasoning, big):
+1. Compare three inspection reports and draft an approval note for P-204
+2. Analyze last quarter's failures and recommend repair or replacement for P-204
+3. Read these two SOPs and summarize the differences in shutdown procedure, then draft a briefing for management
+4. Calculate the pressure drop across L-204A and justify whether the pipe needs replacement
+5. Simulate the heat load on vessel V-17 and explain your assumptions step by step
+
+Vision keywords (routes to vision slot, currently LLM — free Groq key has no vision model):
+- Upload/scan/image/photo/handwriting/P&ID/drawing, e.g. "Read this scanned P&ID and list equipment tags"
+
+Note: answers are ungrounded Groq output until RAG (branch 2) + prompts (branch 3) land. Test routing, not truth.
