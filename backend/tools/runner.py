@@ -21,7 +21,47 @@ def run_python(code, timeout=10):
         return {"ok": False, "error": str(e), "stdout": buf.getvalue()}
 
 
+def run_tool(name, args=None):
+    """Run a persisted tool by name via its def main. args: dict/list or single value."""
+    from tools.factory import load_tool, bump_uses
+    mod = load_tool(name)
+    if not hasattr(mod, "main"):
+        return {"ok": False, "error": f"tool {name} has no def main"}
+    try:
+        import io, contextlib
+        buf = io.StringIO()
+        a = args
+        # normalize args for main
+        with contextlib.redirect_stdout(buf):
+            if a is None:
+                res = mod.main()
+            elif isinstance(a, dict):
+                res = mod.main(**a)
+            elif isinstance(a, list):
+                res = mod.main(*a)
+            else:
+                res = mod.main(a)
+            if res is not None:
+                print(res)
+        bump_uses(name)
+        return {"ok": True, "stdout": buf.getvalue().strip(), "result": res}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 def test_tool(code, sample_input=""):
-    """Reusable tester for Tool Factory — runs tool with sample data."""
-    full = code + "\nprint(main(" + repr(sample_input) + "))" if "def main" in code else code
+    """Reusable tester — handles single value, list (positional), or dict (keyword)."""
+    if sample_input is None or sample_input == "":
+        # dry run: just check def main parses; actual call done via run_tool later
+        return run_python(code + "\n# dry-run ok")
+    if "def main" not in code:
+        return run_python(code)
+    if isinstance(sample_input, list):
+        args = ", ".join(repr(x) for x in sample_input)
+        full = code + f"\nprint(main({args}))"
+    elif isinstance(sample_input, dict):
+        args = ", ".join(f"{k}={repr(v)}" for k, v in sample_input.items())
+        full = code + f"\nprint(main({args}))"
+    else:
+        full = code + "\nprint(main(" + repr(sample_input) + "))"
     return run_python(full)

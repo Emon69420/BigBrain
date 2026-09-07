@@ -1,0 +1,25 @@
+tools:
+- name: add_numbers
+  path: backend/tools/custom/add_numbers.py
+  desc: Add numbers - adds two ints
+  full_desc: 'Add numbers - adds two ints
+
+    Args: a,b
+
+    Returns: sum'
+  status: unverified
+  version: 1
+  uses: 2
+  created_by: user
+- name: mul_numbers
+  path: backend/tools/custom/mul_numbers.py
+  desc: Multiply numbers
+  full_desc: 'Multiply numbers
+
+    Args: x,y
+
+    Returns: product'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: user
