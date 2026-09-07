@@ -6,23 +6,23 @@ models:
   - name: groq-slm
     type: slm
     provider: groq
-    model_id: llama-3.1-8b-instant
+    model_id: openai/gpt-oss-20b
     tasks: [classification, extraction, short-answer, routing]
-    note: SLM stand-in — fast, cheap. Swap to local 1-3B later.
+    note: SLM stand-in on free Groq key — fast. Swap to local 1-3B later.
 
   - name: groq-llm
     type: llm
     provider: groq
-    model_id: llama-3.3-70b-versatile
+    model_id: openai/gpt-oss-120b
     tasks: [reasoning, drafting, summarization, multi-doc, coding]
-    note: LLM stand-in — strong reasoning. Swap to sarvam-7b-q4 local later.
+    note: LLM stand-in on free Groq key. Swap to sarvam-7b-q4 local later.
 
   - name: groq-vision
     type: vlm
     provider: groq
-    model_id: meta-llama/llama-4-scout-17b-16e-instruct
+    model_id: openai/gpt-oss-120b
     tasks: [ocr, handwriting, pid]
-    note: Vision stand-in. Swap to qwen2-vl-2b-q4 local later.
+    note: TEMP — free Groq key has no vision model. Vision routes to LLM with OCR text for now. Swap to qwen2-vl-2b-q4 local later.
 
   # --- SOVEREIGN (local, Phase LAST — uncomment when GPU ready) ---
   # - name: sarvam-7b-q4

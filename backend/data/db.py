@@ -6,7 +6,10 @@ from pgvector.psycopg import register_vector
 
 def get_conn():
     conn = psycopg.connect(os.getenv("DATABASE_URL", ""))
-    register_vector(conn)
+    try:
+        register_vector(conn)
+    except Exception:
+        pass  # extension not installed yet — init_db() installs it
     return conn
 
 
