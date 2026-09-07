@@ -17,9 +17,10 @@ export function Landing({ onEnter }){
         <div className="card"><div className="eyebrow">Auditable</div><div className="kpi">Logged</div><p style={{color:"var(--muted)"}}>Every LLM call stored: prompt, response, tokens, latency, org.</p></div>
       </div>
       <div className="card" style={{marginTop:14, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-        <div><strong>SIH 2026 MVP</strong> <span style={{color:"var(--muted)"}}>— chat · KB explorer · evidence panel · rewriter next</span></div>
-        <span className="badge">v0 · ui-perplexity</span>
+        <div><strong>Perplexity-grade</strong> <span style={{color:"var(--muted)"}}>— grounded citations · phase pill · sources panel · org-isolated</span></div>
+        <span className="badge">v0 · perplexity</span>
       </div>
+      <p style={{marginTop:10, fontSize:12, color:"var(--muted-2)"}}>Try: “whats sop” · “What is inspection interval for P-204?” · then click ⓘ to inspect evidence.</p>
     </div>
   );
 }

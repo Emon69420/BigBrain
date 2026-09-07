@@ -55,16 +55,25 @@ function AppShell({ user, orgs, onLogout }){
     if(cid) return cid;
     const r=await api.createConversation("New chat"); setCid(r.id); loadThreads(); return r.id;
   }
+  const [phase,setPhase]=useState(null);
+  const [highlight,setHighlight]=useState(null);
   async function handleAsk(text){
     const id=await ensureThread();
     await api.postMessage(id,{role:"user", content:text});
+    setPhase("searching");
     setAskLoading(true);
     try{
+      setPhase("reading");
       const ans=await api.askQuestion(text);
+      setPhase("writing");
       await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id});
       await loadMessages(id);
-    } finally{ setAskLoading(false); }
+    } finally{ setAskLoading(false); setTimeout(()=>setPhase(null), 800); }
     loadThreads();
+  }
+  function handleInfo(msg, idx){
+    setEvMsg(msg);
+    setHighlight(msg?.evidence?.[idx]?.doc_id ?? null);
   }
 
   return (
@@ -90,8 +99,8 @@ function AppShell({ user, orgs, onLogout }){
                   {threads.map(t=> <option key={t.id} value={t.id}>{t.title} #{t.id}</option>)}
                 </select>
               </div>
-              <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={setEvMsg}/>
-              <EvidencePanel open={!!evMsg} onClose={()=>setEvMsg(null)} msg={evMsg}/>
+              <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase}/>
+              <EvidencePanel open={!!evMsg} onClose={()=>{setEvMsg(null); setHighlight(null);}} msg={evMsg} highlightDoc={highlight}/>
             </>
           )}
           {view==="kb" && <KBView/>}
