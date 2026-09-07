@@ -41,4 +41,5 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(port=8000, debug=True)
+    # debug=True with reloader causes endless restarts when torch/tf site-packages change
+    app.run(port=8000, debug=True, use_reloader=False)
