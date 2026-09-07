@@ -41,3 +41,19 @@ def find():
     q = request.args.get("q", "")
     hit = find_tool(q)
     return jsonify({"query": q, "hit": hit})
+
+
+def handle_ensure(data):
+    from tools.builder import ensure_tool
+    task = (data.get("task") or data.get("q") or "").strip()
+    if not task:
+        return {"error": "task is required"}, 400
+    res = ensure_tool(task, data.get("sample_input", data.get("args", None)), created_by=data.get("created_by", "agent"))
+    # ensure_tool already logged via its groq calls (via brain service), trace returned for demo
+    return res, 200
+
+
+@tool_bp.post("/tools/ensure")
+def ensure():
+    body, status = handle_ensure(request.get_json(force=True) or {})
+    return jsonify(body), status

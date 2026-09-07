@@ -23,3 +23,58 @@ tools:
   version: 1
   uses: 1
   created_by: user
+- name: simulate_blast_load_on
+  path: backend/tools/custom/simulate_blast_load_on.py
+  desc: Blast load calculator - computes peak blast pressure on a wall from a TNT
+    charge
+  full_desc: 'Blast load calculator - computes peak blast pressure on a wall from
+    a TNT charge
+
+    Args: charge_kg (float), distance_m (float)
+
+    Returns: pressure_kPa (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: agent
+- name: calculate_pressure_drop_across
+  path: backend/tools/custom/calculate_pressure_drop_across.py
+  desc: Darcy-Weisbach pressure drop calculator - computes pressure drop across a
+    pipe
+  full_desc: 'Darcy-Weisbach pressure drop calculator - computes pressure drop across
+    a pipe
+
+    Args: flow_rate_m3s (float), diameter_m (float), length_m (float), roughness_m
+    (float), density_kgm3 (float), viscosity_pa_s (float)
+
+    Returns: delta_p_pa (float)'
+  status: unverified
+  version: 1
+  uses: 0
+  created_by: agent
+- name: compute_heat_transfer_coefficient
+  path: backend/tools/custom/compute_heat_transfer_coefficient.py
+  desc: Heat transfer coefficient calculator for pipe flow
+  full_desc: 'Heat transfer coefficient calculator for pipe flow
+
+    Args: diameter_m (float), temp_K (float), velocity_m_s (float)
+
+    Returns: h_W_m2K (float)'
+  status: unverified
+  version: 1
+  uses: 0
+  created_by: agent
+- name: calculate_bending_moment_of
+  path: backend/tools/custom/calculate_bending_moment_of.py
+  desc: Bending moment calculator - computes max bending moment for a simply supported
+    beam with a centered point load
+  full_desc: 'Bending moment calculator - computes max bending moment for a simply
+    supported beam with a centered point load
+
+    Args: length_m (float), load_N (float)
+
+    Returns: moment_Nm (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: agent

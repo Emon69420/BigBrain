@@ -44,14 +44,14 @@ def validate_tool(code):
 def _load_registry():
     if not os.path.exists(REGISTRY_PATH):
         return {"tools": []}
-    with open(REGISTRY_PATH) as f:
+    with open(REGISTRY_PATH, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {"tools": []}
         data.setdefault("tools", [])
         return data
 
 def _save_registry(data):
-    with open(REGISTRY_PATH, "w") as f:
-        yaml.safe_dump(data, f, sort_keys=False)
+    with open(REGISTRY_PATH, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
 
 def list_registry():
     """Full registry entries (name, path, desc, status, version, uses)."""
@@ -97,19 +97,23 @@ def bump_uses(name):
     return 0
 
 def find_tool(task_text):
-    """Naive keyword match over desc/full_desc — no LLM yet. Returns best entry or None."""
+    """Exact word match with threshold — avoids substring false hits."""
+    import re
     q = (task_text or "").lower()
     best = None
     best_score = 0
+    stop = {"calculate","compute","computing","using","across","from","with","wall","load","simulate","pipe","flow","rate"}
     for t in _load_registry()["tools"]:
         blob = (t.get("desc","") + " " + t.get("full_desc","")).lower()
-        # simple overlap: count query words in desc
-        qwords = [w for w in q.split() if len(w) >= 3]
-        score = sum(1 for w in qwords if w in blob)
+        blob_words = set(re.findall(r"[a-z0-9]+", blob))
+        qwords = [w for w in re.findall(r"[a-z0-9]+", q) if len(w) >= 3 and w not in stop]
+        if not qwords:
+            qwords = [w for w in re.findall(r"[a-z0-9]+", q) if len(w) >= 3]
+        score = sum(1 for w in qwords if w in blob_words)
         if score > best_score:
             best_score = score
             best = t
-    return best if best_score > 0 else None
+    return best if best_score >= 2 else None
 
 def load_tool(name):
     """Import and return module for the tool."""
@@ -137,7 +141,7 @@ def create_tool(name, code, sample_input=None, created_by="user"):
             return {"saved": False, "test": result, "error": result.get("error")}
     os.makedirs(CUSTOM_DIR, exist_ok=True)
     path = os.path.join(CUSTOM_DIR, f"{name}.py")
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(code)
     entry = register_tool(name, code, created_by)
     return {"saved": True, "path": path, "test": result, "entry": entry}
