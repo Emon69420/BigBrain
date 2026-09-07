@@ -100,5 +100,17 @@ tools:
     Returns: kinetic_energy (float)'
   status: unverified
   version: 1
-  uses: 2
+  uses: 3
+  created_by: auto
+- name: multiply_and_to_find
+  path: backend/tools/custom/multiply_and_to_find.py
+  desc: kWh consumption calculator - computes remaining energy percentage
+  full_desc: 'kWh consumption calculator - computes remaining energy percentage
+
+    Args: none
+
+    Returns: remaining_percentage (float)'
+  status: unverified
+  version: 1
+  uses: 0
   created_by: auto

@@ -20,52 +20,62 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
     search_queries=[text]
     tool_used = None
     tool_trace = []
+    judge_out = None
     if retrieve:
         try:
             from data.service import hybrid_search
             evidence = hybrid_search(text, user_dept, limit=5, org_id=org_id, queries=[text])
         except Exception:
             evidence = []
-        # --- auto tool: every calculation/physics/coding benefits from a tool (no prompt, no toggle) ---
-        task_is_toolable = task.get("task_type") in {"calculation","coding"} or task.get("modality")=="calc" or any(k in text.lower() for k in ["calculate","compute","simulate","pressure","load","blast","bending","heat transfer","convert"])
-        if task_is_toolable:
+        # --- judge after retrieval: sees evidence + tools + query ---
+        try:
+            from brain.judge import judge as judge_fn
+            from tools.factory import list_registry
+            tool_descs = list_registry()
+            judge_out = judge_fn(text, evidence, tool_descs, history_text)
+            decision = judge_out.get("decision","docs" if evidence else "general")
+            tool_trace.append(f"judge: {decision} ({judge_out.get('reason','')[:60]})")
+        except Exception as e:
+            tool_trace.append(f"judge failed open: {e}")
+            decision = "docs" if evidence else "general"
+            judge_out = {"decision":decision, "tool_task":""}
+        # act on decision
+        if decision in ("tool_only","docs_plus_tool"):
+            tool_task = (judge_out.get("tool_task") or text).strip()
+            # ensure/build
             try:
                 from tools.builder import ensure_tool
                 from tools.runner import run_tool
-                # ensure (reuse saves compute, miss builds)
-                t_res = ensure_tool(text, sample_input=None, created_by="auto", org_id=org_id)
-                tool_trace = t_res.get("trace", [])
+                t_res = ensure_tool(tool_task, sample_input=None, created_by="auto", org_id=org_id)
+                tool_trace.extend(t_res.get("trace", []))
                 entry = t_res.get("entry")
                 if entry:
-                    # extract args using exact arg names from full_desc
                     args = {}
                     try:
                         full = entry.get("full_desc","") or entry.get("desc","")
-                        arg_prompt = f"Tool {entry['name']} expects:\n{full}\nQuery: {text}\nReturn JSON with exact arg names only, e.g. {{\"charge_kg\":10}}. Numbers only, no units string. Return JSON only."
+                        arg_prompt = f"Tool {entry['name']} expects:\n{full}\nQuery: {text}\nTool task: {tool_task}\nReturn JSON with exact arg names only. Numbers only. Return JSON only."
                         raw,_ = _brain.chat_full("groq-llm", [{"role":"user","content":arg_prompt}])
                         import json, re
                         m=re.search(r"\{.*\}", raw, re.S)
                         if m: args=json.loads(m.group(0))
-                        # normalize: if model returned generic keys like force/distance, map to actual arg names via fuzzy
-                        if args and entry["name"] not in str(args):
-                            # keep as is; run_tool will error and we surface it
-                            pass
                     except: args={}
                     run_res = run_tool(entry["name"], args if args else None)
                     if run_res.get("ok"):
-                        tool_used = {"name": entry["name"], "hit": t_res.get("hit", False), "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result"))}
-                        # inject as tool evidence so answer can cite [tool:name]
+                        tool_used = {"name": entry["name"], "hit": t_res.get("hit", False), "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision}
                         evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True}] + evidence
                     else:
-                        tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": t_res.get("hit", False)}
+                        tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": t_res.get("hit", False), "decision":decision}
+                        tool_trace.append(f"run failed: {run_res.get('error')}")
             except Exception as e:
                 tool_trace.append(f"tool auto failed: {e}")
-        prompt = build_rag_prompt(text, evidence)
-        grounded = True
-        general_knowledge = len([e for e in evidence if not e.get("tool")]) == 0 and not tool_used
-    else:
-        prompt = text
-        general_knowledge = True
+        elif decision == "general":
+            # no retrieval needed already, but we already retrieved — just keep evidence empty for general badge
+            pass
+        # docs: keep evidence as is
+        prompt = build_rag_prompt(text, evidence if decision != "general" else [])
+        grounded = decision != "general"
+        general_knowledge = decision == "general" or (len([e for e in evidence if not e.get("tool")]) == 0 and not tool_used)
+        search_queries = [judge_out.get("tool_task") or text] if judge_out else [text]
     t0 = timed()
     try:
         answer, usage = _brain.chat_full(model_key, [{"role": "user", "content": prompt}])
@@ -87,6 +97,7 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
         "search_queries": search_queries if retrieve else [],
         "tool_used": tool_used,
         "tool_trace": tool_trace,
+        "judge": judge_out,
     }
     return out
 
