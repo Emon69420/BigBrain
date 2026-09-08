@@ -136,6 +136,26 @@ def handle_board_reader(text, org_id):
         if b["name"].lower() in low or (b["zone"] and b["zone"].lower() in low):
             hits.append(b)
             seen.add(b["id"])
+    via_metric = False
+    if not hits:
+        # fallback: a distinctive metric-label token unique to one board
+        # ("how much is owed to Saurabh?" names no board, but saurabh
+        # appears in exactly one board's metrics). Ambiguous tokens attach
+        # nothing — today's docs/tools path continues instead.
+        qtok = set(re.findall(r"[a-z0-9]{4,}", low))
+        if qtok:
+            live = [b for b in boards.list_dashboards(org_id)
+                    if b["status"] == "live"]
+            tok_boards = {}
+            for b in live:
+                labels = " ".join(m["label"] for m in b["metrics"]).lower()
+                for t in qtok & set(re.findall(r"[a-z0-9]{4,}", labels)):
+                    tok_boards.setdefault(t, set()).add(b["id"])
+            uniq = {i for ids in tok_boards.values() if len(ids) == 1
+                    for i in ids}
+            by_id = {b["id"]: b for b in live}
+            hits = [by_id[i] for i in uniq if i in by_id]
+            via_metric = bool(hits)
     if not hits:
         return [], ""
     out = []
@@ -204,7 +224,9 @@ def _board_evidence(board):
 
 def _is_builder_turn(text, org_id):
     """Cheap deterministic gate: board word, known board name/zone, or
-    iterate verbs while a draft exists. The LLM parses; gate only routes."""
+    iterate verbs while a draft exists. A board NAME inside a pure value
+    question (no builder verbs, no board word) is a READ, not a build.
+    The LLM parses; gate only routes."""
     low = text.lower()
     if re.search(BOARD_WORD, low):
         return True
@@ -215,6 +237,8 @@ def _is_builder_turn(text, org_id):
         return False
     for b in all_b:
         if b["name"].lower() in low or (b["zone"] and b["zone"].lower() in low):
+            if VALUE_WORDS.search(low) and not READER_BUILDER_VERBS.search(low):
+                return False
             return True
     if any(b["status"] == "draft" for b in all_b) and ITERATE_VERBS.search(low):
         return True
