@@ -3,7 +3,7 @@ import * as api from "../services/api.js";
 
 export function OrgSelect({ orgs, onPick }){
   const [counts,setCounts]=useState({});
-  useEffect(()=>{ (async()=>{ const m={}; for(const o of orgs){ try{ const r=await fetch(`${import.meta.env.VITE_API_URL||"http://localhost:8000"}/docs`,{headers:{"Content-Type":"application/json","X-Org-Id":o.id},credentials:"include"}).then(x=>x.json()); m[o.id]=r.docs?.length??0;}catch{ } } setCounts(m); })(); },[orgs]);
+  useEffect(()=>{ (async()=>{ const m={}; for(const o of orgs){ try{ const r=await fetch(`${import.meta.env.VITE_API_URL||"https://7db2-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/docs`,{headers:{"Content-Type":"application/json","X-Org-Id":o.id,"ngrok-skip-browser-warning":"true"},credentials:"include"}).then(x=>x.json()); m[o.id]=r.docs?.length??0;}catch{ } } setCounts(m); })(); },[orgs]);
   if(!orgs.length) return <div className="card" style={{maxWidth:520, margin:"32px auto"}}>No orgs yet. Ask admin to add you.</div>;
   return (
     <div style={{maxWidth:1100, margin:"0 auto", padding:24}}>
