@@ -70,7 +70,7 @@ tools:
     Returns: kinetic_energy_joules (float)'
   status: unverified
   version: 1
-  uses: 3
+  uses: 4
   created_by: auto
 - name: convert_total_volume_in
   path: backend/tools/custom/convert_total_volume_in.py
@@ -84,5 +84,5 @@ tools:
     Returns: barrels (float), barrel_volume_L (float)'
   status: unverified
   version: 1
-  uses: 4
+  uses: 7
   created_by: auto

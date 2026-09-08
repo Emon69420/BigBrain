@@ -15,7 +15,18 @@ import re
 
 NUM_RE = re.compile(r"-?\d[\d,]*\.?\d*\s?%?")
 CITE_RE = re.compile(r"\[(doc|tool):([^\]]+)\]")
-TAG_RE = re.compile(r"\b[A-Z]{1,4}-?\d+[A-Z]?\b")  # equipment tags (P-204, L-204A): IDs, not claims
+TAG_RE = re.compile(r"\b[A-Z]{1,4}[-‐‑]?\d+[A-Z]?\b")  # equipment tags (P-204, L-204A): IDs, not claims
+HEDGE_RE = re.compile(r"roughly|about|~|≈|approximately|around|almost|nearly|close to|up to|or so", re.I)
+
+
+def _norm(text):
+    """Normalize unicode that fragments number tokenization.
+    U+202F/U+00A0 between digits are thousand separators -> removed.
+    U+2010/U+2011 hyphens -> ASCII hyphen (equipment tags like P-204)."""
+    t = text or ""
+    t = re.sub("(?<=\\d)[  ](?=\\d)", "", t)
+    t = t.replace("‑", "-").replace("‐", "-").replace(" ", " ")
+    return t
 
 
 def _numbers(text):
@@ -55,24 +66,67 @@ def deterministic_checks(answer, evidence, tool_used, question=""):
     # number provenance: every multi-digit answer number must appear in tool output or evidence text.
     # Excluded (not claims): citation markers ([doc:17]), equipment tags (P-204),
     # and numbers the user supplied in the question itself.
-    answer_claims = TAG_RE.sub("", CITE_RE.sub("", answer))
-    question_nums = set(_numbers(question))
-    sources_text = " ".join(
+    # All texts are unicode-normalized first so U+202F thousand groups (11 320)
+    # tokenize as single numbers instead of phantom fragments (11, 320).
+    answer_norm = _norm(answer)
+    answer_claims = TAG_RE.sub("", CITE_RE.sub("", answer_norm))
+    question_nums = set(_numbers(_norm(question)))
+    sources_text = _norm(" ".join(
         [str((tool_used or {}).get("result") or "")] +
         [str(e.get("content") or "") for e in evidence]
-    )
+    ))
     source_nums = _numbers(sources_text)
-    for n in _numbers(answer_claims):
+
+    def _span_around(m):
+        s = max(0, m.start() - 40)
+        e = min(len(answer_claims), m.end() + 20)
+        return answer_claims[s:e].strip()
+
+    for m in NUM_RE.finditer(answer_claims):
+        try:
+            n = float(m.group(0).strip().rstrip("%").replace(",", ""))
+        except ValueError:
+            continue
         if abs(n) < 10:
             continue  # single digits (counts, list indices) are noise, not claims
         if any(abs(n - q) <= max(1e-6, abs(q) * 1e-6) for q in question_nums):
             continue  # user-supplied entity, not a model claim
-        if not any(abs(n - s) <= max(1e-6, abs(s) * 1e-6) for s in source_nums):
-            findings.append(f"number {n:g} in answer traces to no tool output or evidence — possibly guessed")
+        # hedge-aware tolerance: hedged approximations ("about 11320", "≈11 321")
+        # match within 2%; exact claims keep 1e-6 tolerance.
+        window = answer_claims[max(0, m.start() - 30):m.start()]
+        hedged = bool(HEDGE_RE.search(window))
+        def _close(a, b):
+            tol = 0.02 * max(1.0, abs(b)) if hedged else max(1e-6, abs(b) * 1e-6)
+            return abs(a - b) <= tol
+        if not any(_close(n, s) for s in source_nums):
+            findings.append(f"number {n:g} (\"{_span_around(m)}\") traces to no tool output or evidence — possibly guessed")
 
     if findings:
         return {"verdict": "fail", "findings": findings}
     return {"verdict": "pass", "findings": []}
+
+
+def _tool_contract(tool_used):
+    """Human-readable tool record: execution result PLUS the tool's own contract
+    (name/desc/Args), so the reviewer can verify units instead of guessing."""
+    if not isinstance(tool_used, dict) or not tool_used.get("name"):
+        return "(no tool used)"
+    lines = [f"Executed tool: {tool_used.get('name')}", f"Result: {tool_used.get('result')}"]
+    try:
+        from tools.factory import list_registry
+        for t in list_registry():
+            if t.get("name") == tool_used.get("name"):
+                lines.append(f"Contract desc: {t.get('desc','')}")
+                full = t.get("full_desc", "") or ""
+                if full:
+                    lines.append(f"Contract details: {full[:400]}")
+                break
+    except Exception:
+        pass
+    return "\n".join(lines)
+
+
+STYLE_PAT = re.compile(r"styl|format|citation style|wording|minor mismatch", re.I)
 
 
 def llm_review(answer, evidence, tool_used, org_id="default"):
@@ -86,7 +140,7 @@ def llm_review(answer, evidence, tool_used, org_id="default"):
     ev_block = "\n---\n".join(
         f"[doc:{e.get('doc_id')}] {e.get('title','')}\n{e.get('content','')[:600]}" for e in (evidence or [])
     ) or "(no evidence)"
-    tool_block = json.dumps(tool_used) if tool_used else "(no tool used)"
+    tool_block = _tool_contract(tool_used)
     prompt = REDTEAM_TEMPLATE.format(answer=answer, evidence_block=ev_block, tool_block=tool_block)
     req_id = new_request_id()
     t0 = timed()
@@ -99,6 +153,9 @@ def llm_review(answer, evidence, tool_used, org_id="default"):
         if verdict not in ("pass", "flag", "fail"):
             verdict = "flag"
         findings = data.get("findings", []) or []
+        # calibration fuse: style-only complaints can never force a fail + regenerate
+        if verdict == "fail" and findings and all(STYLE_PAT.search(str(f)) for f in findings):
+            verdict = "flag"
         log_llm_call(req_id, org_id, "red-team", {"task_type": "red_team", "complexity": "high"},
                      "groq-llm", brain.registry.get("groq-llm", {}).get("model_id", ""),
                      prompt, raw, usage, latency)
