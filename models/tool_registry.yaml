@@ -46,5 +46,17 @@ tools:
     Returns: sop_guide (str)'
   status: unverified
   version: 1
+  uses: 4
+  created_by: auto
+- name: determine_the_lube_oil
+  path: backend/tools/custom/determine_the_lube_oil.py
+  desc: Lube oil temperature threshold calculator for P-204
+  full_desc: 'Lube oil temperature threshold calculator for P-204
+
+    Args: value_1 (float)
+
+    Returns: threshold_temp (float)'
+  status: unverified
+  version: 1
   uses: 1
   created_by: auto

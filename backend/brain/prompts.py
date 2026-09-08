@@ -29,7 +29,10 @@ def format_evidence(evidence):
                 meta += f" distance={float(e['distance']):.3f}"
             except:
                 pass
-        lines.append(f"{meta}\n{e['content']}")
+        body = e["content"]
+        if e.get("parent_content") and e["parent_content"].strip() != (e["content"] or "").strip():
+            body = f"Matched passage: {e['content']}\nSurrounding section: {e['parent_content']}"
+        lines.append(f"{meta}\n{body}")
     return "\n---\n".join(lines)
 
 
