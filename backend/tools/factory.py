@@ -115,6 +115,13 @@ def find_tool(task_text):
             best = t
     return best if best_score >= 2 else None
 
+def find_exact(task_text):
+    """Hit ONLY if score_fit == exact. Partial/none never execute. Single source of truth for reuse."""
+    hit = find_tool(task_text)
+    if hit and score_fit(task_text, hit) == "exact":
+        return hit
+    return None
+
 def score_fit(task, entry):
     """Grade fit: exact (covers task + args satisfiable), partial, none. Never call partial."""
     import re
@@ -225,6 +232,128 @@ def execute_chain(steps, initial_args=None):
         last_result=res.get("result") if res.get("result") is not None else res.get("stdout")
         ctx[f"step_{i}"]={"result":last_result, "args":args}
     return {"ok":True, "result":last_result, "trace":trace}
+
+def map_args_by_unit(query_text, expected_params):
+    """Map numbers in query to tool params via unit tags. Returns dict (maybe partial). Pure + deterministic."""
+    import re
+    unit_tags = {
+        "m/s": {"velocity", "speed"}, "km/h": {"velocity", "speed"}, "mph": {"velocity", "speed"},
+        "m": {"height", "distance", "length", "radius", "altitude"}, "km": {"distance", "length"},
+        "cm": {"length"}, "mm": {"length"}, "ft": {"height", "distance", "length"},
+        "metre": {"height", "distance", "length"}, "meter": {"height", "distance", "length"},
+        "mile": {"distance"}, "m3": {"volume", "litres"},
+        "kg": {"mass", "weight"}, "gram": {"mass", "weight"}, "tonne": {"mass"}, "ton": {"mass"}, "lb": {"mass", "weight"},
+        "N": {"force"}, "newton": {"force"},
+        "W": {"power"}, "kW": {"power"}, "watt": {"power"}, "kilowatt": {"power"},
+        "Wh": {"energy"}, "kWh": {"energy", "capacity", "battery"}, "J": {"energy", "joule"}, "joule": {"energy"},
+        "degree": {"temp", "temperature", "celsius"}, "celsius": {"temp", "temperature"},
+        "second": {"time", "duration"}, "sec": {"time"}, "minute": {"time", "duration"}, "min": {"time"},
+        "hour": {"time"}, "litre": {"volume", "litres"}, "liter": {"volume", "litres"},
+        "volt": {"voltage"}, "amp": {"current"}, "ohm": {"resistance"},
+        "kg": {"mass", "weight"}, "g": {"mass", "weight"}, "n": {"force"},
+        "w": {"power"}, "j": {"energy"}, "c": {"temp", "temperature", "celsius"},
+        "v": {"voltage"}, "a": {"current"}, "m": {"height", "distance", "length"}, "s": {"time"},
+    }
+    pat = r"(\d+(?:\.\d+)?)\s*(m/s|km/h|mph|kilowatt-hours?|kilowatts?|watt-hours?|watts?|kWh|Wh|kW|joules?|degrees?|celsius|kilograms?|grams?|newtons?|seconds?|secs?|sec|minutes?|mins?|min|hours?|metres?|meters?|kilometres?|kilometers?|litres?|liters?|volts?|amps?|ohms?|m3|kg|N|W|J|C|V|A|m|s)\b"
+    pairs = [(float(n), u) for n, u in re.findall(pat, query_text)]
+    bare = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", query_text)]
+    # remove paired numbers from bare list (match by value)
+    bare_left = list(bare)
+    for n, u in pairs:
+        if n in bare_left:
+            bare_left.remove(n)
+    def toks(s):
+        return set(re.findall(r"[a-z0-9]+", str(s).lower()))
+    args = {}
+    used_pairs = set()
+    for exp in (expected_params or []):
+        et = toks(exp)
+        best, best_s = None, 0
+        for i, (n, u) in enumerate(pairs):
+            if i in used_pairs:
+                continue
+            tags = set(unit_tags.get(u, unit_tags.get(u.lower(), set())))
+            ut = toks(u) | tags
+            inter = len(et & ut)
+            if inter > best_s:
+                best_s, best = inter, i
+        if best is not None and best_s >= 1:
+            args[exp] = pairs[best][0]
+            used_pairs.add(best)
+    # bare numbers fill remaining params in order
+    remaining = [e for e in (expected_params or []) if e not in args]
+    for exp, val in zip(remaining, bare_left):
+        args[exp] = val
+    return args
+
+
+def find_twin(name):
+    """Save-time dedup: if new entry is an exact twin (desc + arg set) of another, return the twin."""
+    import re
+    data = _load_registry()
+    new = next((t for t in data["tools"] if t["name"] == name), None)
+    if not new:
+        return None
+    def argset(full):
+        m = re.search(r"Args:(.*?)(Returns:|$)", full or "", re.S | re.I)
+        if not m:
+            return set()
+        return set(re.findall(r"[a-z_][a-z0-9_]*", m.group(1).lower())) - {"float", "int", "str", "list", "dict", "or"}
+    new_args = argset(new.get("full_desc", ""))
+    for t in data["tools"]:
+        if t["name"] == name:
+            continue
+        if score_fit(new.get("desc", ""), t) == "exact" and argset(t.get("full_desc", "")) == new_args and new_args:
+            return t
+    return None
+
+
+def extract_inputs(query_text):
+    """Deterministic fallback: numbers+units -> {name: value}. Used when judge emits empty inputs."""
+    import re
+    unit_first_tag = {
+        "m/s": "velocity_m_s", "km/h": "velocity_km_h", "mph": "velocity_mph",
+        "m": "distance_m", "km": "distance_km", "cm": "length_cm", "mm": "length_mm", "ft": "height_ft",
+        "metre": "distance_m", "meter": "distance_m", "mile": "distance_miles", "m3": "volume_m3",
+        "kg": "mass_kg", "gram": "mass_g", "tonne": "mass_t", "ton": "mass_t", "lb": "mass_lb",
+        "N": "force_N", "newton": "force_N",
+        "W": "power_W", "kW": "power_kW", "watt": "power_W", "kilowatt": "power_kW",
+        "Wh": "energy_Wh", "kWh": "energy_kWh", "J": "energy_J", "joule": "energy_J",
+        "degree": "temp_change_C", "celsius": "temp_C",
+        "second": "time_s", "sec": "time_s", "minute": "time_min", "min": "time_min", "hour": "time_h",
+        "litre": "volume_L", "liter": "volume_L", "volt": "voltage_V", "amp": "current_A", "ohm": "resistance_ohm",
+        "km": "distance_km", "kg": "mass_kg", "g": "mass_g", "m": "distance_m", "s": "time_s",
+    }
+    pat = r"(\d+(?:\.\d+)?)\s*(m/s|km/h|km|mph|kilowatt-hours?|kilowatts?|watt-hours?|watts?|kWh|Wh|kW|joules?|degrees?|celsius|kilograms?|grams?|newtons?|seconds?|secs?|sec|minutes?|mins?|min|hours?|metres?|meters?|kilometres?|kilometers?|litres?|liters?|volts?|amps?|ohms?|m3|kg|[NWMJVAgsm])\b"
+    out = {}
+    used = set()
+    for n, u in re.findall(pat, query_text):
+        base = unit_first_tag.get(u, unit_first_tag.get(u.lower(), unit_first_tag.get(u.lower().rstrip("s"), unit_first_tag.get({"kwh": "energy_kWh", "wh": "energy_Wh", "kw": "power_kW"}.get(u.lower(), None)))))
+        if not base:
+            continue
+        name = base
+        i = 2
+        while name in out:
+            name = f"{base}_{i}"
+            i += 1
+        out[name] = float(n)
+        used.add(float(n))
+    # bare numbers left over -> value_N in order (mask paired spans + lone m3 so its 3 isn't counted)
+    masked = list(query_text)
+    for _m in re.finditer(pat, query_text):
+        for _i in range(_m.start(), _m.end()):
+            masked[_i] = " "
+    masked_txt = "".join(masked)
+    masked_txt = re.sub(r"\bm3\b", "   ", masked_txt)
+    left = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", masked_txt)]
+    k = 1
+    for v in left:
+        while f"value_{k}" in out:
+            k += 1
+        out[f"value_{k}"] = v
+        k += 1
+    return out
+
 
 def load_tool(name):
     """Import and return module for the tool."""

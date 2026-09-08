@@ -31,8 +31,11 @@ def _call_llm_for_code(task, sample, error=None, prev_code="", org_id="default")
     return code, {"raw": raw, "usage": usage, "request_id": req_id}
 
 def ensure_tool(task, sample_input=None, created_by="agent", org_id="default"):
-    """Hit -> reuse (no build). Miss -> LLM build with frozen inputs as exact signature, gated."""
-    hit = find_tool(task)
+    """Exact hit -> reuse (no build). Anything less -> LLM build with frozen inputs as exact signature, gated."""
+    if not (task or "").strip():
+        return {"hit": False, "error": "empty task — refusing to build", "trace": ["refused empty build"], "reused": False}
+    from tools.factory import find_exact
+    hit = find_exact(task)
     if hit:
         import logging
         logging.getLogger("bigbrain").info("tool hit org=%s task=\"%s\" -> %s uses=%s (0 rebuild)", org_id, task[:40], hit["name"], hit.get("uses",0))
@@ -81,6 +84,24 @@ def ensure_tool(task, sample_input=None, created_by="agent", org_id="default"):
             except: pass
         res = create_tool(_slug(task), code, sample_input, created_by=created_by)
         if res.get("saved"):
+            # save-time dedup: twin of existing tool -> discard, reuse twin
+            try:
+                from tools.factory import find_twin
+                twin = find_twin(res["entry"]["name"])
+                if twin:
+                    import os as _os
+                    try:
+                        _os.remove(res.get("path", ""))
+                    except Exception:
+                        pass
+                    from tools.factory import _load_registry, _save_registry
+                    data = _load_registry()
+                    data["tools"] = [t for t in data["tools"] if t["name"] != res["entry"]["name"]]
+                    _save_registry(data)
+                    trace.append(f"twin-merged into {twin['name']} (discarded duplicate)")
+                    return {"hit": True, "entry": twin, "code": code, "trace": trace, "reused": True}
+            except Exception as _de:
+                trace.append(f"twin-check failed: {_de}")
             trace.append(f"saved {res['entry']['name']}")
             return {"hit": False, "entry": res["entry"], "code": code, "trace": trace, "reused": False}
         last_err = res.get("error") or str(res.get("test", {}).get("error"))

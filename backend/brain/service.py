@@ -59,6 +59,9 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                 reused = []
                 for miss in sel.get("missing", []):
                     purpose = miss.get("purpose") or miss.get("task") or tool_task_str
+                    if not (purpose or "").strip():
+                        tool_trace.append("skip empty missing-purpose (no junk builds)")
+                        continue
                     inputs = miss.get("inputs", {})
                     t_res = ensure_tool(purpose, sample_input=inputs if inputs else None, created_by="auto", org_id=org_id)
                     tool_trace.extend(t_res.get("trace", []))
@@ -73,6 +76,7 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                 # 3) caller: run selected (existing) + built (new) — deterministic, no half-built
                 # for sufficient: run the selected single (or chain if multiple)
                 to_run = sel.get("selected", [])
+                consumed = set()  # each tool executes at most once per question
                 # if selector said sufficient with one tool, run it; if chain (multiple), run via execute_chain
                 if len(to_run) == 1 and not built:
                     entry = next((t for t in _list() if t["name"]==to_run[0].get("tool")), None)
@@ -96,16 +100,58 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                                     args[exp_match] = inputs[input_key]
                                 elif tool_arg in inputs:
                                     args[exp_match] = inputs[tool_arg]
-                        # fill any missing expected via fuzzy on remaining inputs
+                        # fill missing via token overlap either direction (initial_velocity_m_s <- velocity_m_s)
+                        import re as _re2
+                        def _toks(s):
+                            return set(_re2.findall(r"[a-z0-9]+", str(s).lower()))
                         for exp in expected:
                             if exp not in args:
-                                base = exp.split("_")[0]
-                                for k,v in inputs.items():
-                                    if k == exp or k == base or base in k or k in base:
-                                        args[exp] = v
-                                        break
+                                et = _toks(exp)
+                                best_k, best_s = None, 0
+                                for k, v in inputs.items():
+                                    kt = _toks(k)
+                                    inter = len(et & kt)
+                                    if inter > best_s:
+                                        best_s, best_k = inter, k
+                                if best_k and (best_s >= 2 or best_s >= len(et) / 2 or best_s >= len(_toks(best_k)) / 2):
+                                    args[exp] = inputs[best_k]
+                        # unit-aware fill from query numbers for still-missing params
+                        still_missing = [e for e in expected if e not in args]
+                        if still_missing:
+                            try:
+                                from tools.factory import map_args_by_unit as _mapu
+                                mapped = _mapu(text, expected)
+                                for e in still_missing:
+                                    if e in mapped:
+                                        args[e] = mapped[e]
+                                        tool_trace.append(f"unit-mapped {e}={mapped[e]}")
+                            except Exception as _ue:
+                                tool_trace.append(f"unit-map failed: {_ue}")
                         if not args:
                             args = inputs
+                        was_hit = True
+                        rebuilt_exact = False
+                        if entry["name"] in consumed:
+                            tool_trace.append(f"skip dup run: {entry['name']}")
+                            run_res = {"ok": False, "error": "duplicate-run-skipped"}
+                        else:
+                            consumed.add(entry["name"])
+                            run_res = run_tool(entry["name"], args)
+                        if (not run_res.get("ok")) and inputs and any(s in str(run_res.get("error", "")).lower() for s in ("missing", "unexpected keyword", "positional argument")):
+                            # arg mismatch -> build one exact tool for frozen inputs, run once
+                            try:
+                                t2 = ensure_tool(f"{tool_task_str} [exact args {sorted(inputs.keys())}]", sample_input=inputs, created_by="auto", org_id=org_id)
+                                tool_trace.extend(t2.get("trace", []))
+                                if t2.get("entry") and not t2.get("hit"):
+                                    r2 = run_tool(t2["entry"]["name"], inputs)
+                                    if r2.get("ok"):
+                                        run_res = r2
+                                        entry = t2["entry"]
+                                        rebuilt_exact = True
+                                        was_hit = False
+                                        tool_trace.append(f"rebuilt exact: {entry['name']}")
+                            except Exception as e2:
+                                tool_trace.append(f"rebuild fallback failed: {e2}")
                         # reject empty-args success (tool with defaults that hides missing inputs)
                         if run_res.get("ok") and not args:
                             try:
@@ -113,13 +159,13 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                                 if len(sig2.parameters) > 0:
                                     run_res = {"ok": False, "error": "tool ran without inputs but requires params — not trusted"}
                             except: pass
-                        newly = False
+                        newly = rebuilt_exact
                         if run_res.get("ok"):
-                            tool_used = {"name": entry["name"], "hit": True, "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": newly}
+                            tool_used = {"name": entry["name"], "hit": was_hit, "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": newly}
                             evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "newly_created": newly}] + evidence
                         else:
-                            tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": True, "decision":decision, "newly_created": newly}
-                elif to_run or built:
+                            tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": was_hit, "decision":decision, "newly_created": newly}
+                elif to_run or built or reused:
                     # chain or multiple: use execute_chain with built tools included
                     # build a step list from selector + built
                     steps = []
@@ -131,6 +177,10 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                     for r in reused:
                         if not any(s["tool"]==r["name"] for s in steps):
                             steps.append({"tool": r["name"], "args": tool_task_obj.get("inputs",{})})
+                    # each tool executes at most once per question
+                    steps = [s for s in steps if s["tool"] not in consumed]
+                    for s in steps:
+                        consumed.add(s["tool"])
                     if not steps and built:
                         steps = [{"tool": built[0]["name"], "args": tool_task_obj.get("inputs",{})}]
                     if steps:
@@ -150,18 +200,35 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                     # single newly built tool not yet run (selector none case)
                     entry = built[0]
                     args = tool_task_obj.get("inputs",{})
-                    run_res = run_tool(entry["name"], args)
+                    if entry["name"] in consumed:
+                        tool_trace.append(f"skip dup run: {entry['name']}")
+                        run_res = {"ok": False, "error": "duplicate-run-skipped"}
+                    else:
+                        consumed.add(entry["name"])
+                        run_res = run_tool(entry["name"], args)
+                        if run_res.get("ok") and not args:
+                            try:
+                                import inspect as _insp3
+                                sig4 = _insp3.signature(__import__('tools.factory', fromlist=['load_tool']).load_tool(entry["name"]).main)
+                                if len(sig4.parameters) > 0:
+                                    run_res = {"ok": False, "error": "tool ran without inputs but requires params — not trusted"}
+                            except: pass
                     if run_res.get("ok"):
                         tool_used = {"name": entry["name"], "hit": False, "uses": 0, "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": True}
                         evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "newly_created": True}] + evidence
-                if not tool_used and not built and not to_run:
+                if not tool_used and not built and not to_run and not reused:
                     # selector said none but builder failed — ensure one full tool as last resort
                     t_res = ensure_tool(tool_task_str, sample_input=tool_task_obj.get("inputs"), created_by="auto", org_id=org_id)
                     tool_trace.extend(t_res.get("trace", []))
                     entry = t_res.get("entry")
                     if entry:
                         args = tool_task_obj.get("inputs",{})
-                        run_res = run_tool(entry["name"], args)
+                        if entry["name"] in consumed:
+                            tool_trace.append(f"skip dup run: {entry['name']}")
+                            run_res = {"ok": False, "error": "duplicate-run-skipped"}
+                        else:
+                            consumed.add(entry["name"])
+                            run_res = run_tool(entry["name"], args)
                         newly = not t_res.get("hit", False)
                         if run_res.get("ok"):
                             tool_used = {"name": entry["name"], "hit": t_res.get("hit", False), "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": newly}

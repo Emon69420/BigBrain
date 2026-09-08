@@ -48,8 +48,12 @@ def run_tool(name, args=None):
                 res = mod.main(a)
             if res is not None:
                 print(res)
+        out = buf.getvalue().strip()
+        # provenance: a tool that yields nothing (None + empty print) proves nothing
+        if res is None and (not out or out == "None"):
+            return {"ok": False, "error": f"tool {name} returned no result — untrusted"}
         bump_uses(name)
-        return {"ok": True, "stdout": buf.getvalue().strip(), "result": res}
+        return {"ok": True, "stdout": out, "result": res}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

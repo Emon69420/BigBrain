@@ -13,7 +13,7 @@ Hard rule: ANY maths beyond talking & fact lookup MUST be tool_only/docs_plus_to
 
 Tool_task rules (critical):
 - tool_task.purpose MUST be a concise imperative rephrase of the USER'S query intent (what they asked to calculate), NEVER a description of an evidence doc.
-- tool_task.inputs = exact numbers from the query only (units stripped), never computed results, never call-syntax.
+- tool_task.inputs = exact numbers from the query (units stripped) PLUS standard physical constants the task needs (gravity 9.8 m/s2, water specific heat 4.2 J/gC or 4186 J/kgC, etc.). Never computed results, never call-syntax.
 Example for refinery flow: {"purpose":"compute litres per second from 0.5 m3/s, seconds to fill 1800000 litres tank, and minutes","inputs":{"flow_m3_per_s":0.5,"litres_per_m3":1000,"tank_litres":1800000}}
 Example for pressure: {"purpose":"compute pressure drop across pipeline","inputs":{...}}
 
@@ -38,11 +38,19 @@ def judge(query, evidence, tool_descs, history_text=""):
         decision = data.get("decision","docs" if evidence else "general")
         if decision not in {"docs","docs_plus_tool","tool_only","general"}:
             decision = "docs" if evidence else "general"
-        # numeric backstop: maths without tool decision -> force tool_only
+        # numeric backstop: quantities (number+unit) without tool decision -> force tool_only
         tt = data.get("tool_task","")
-        has_numbers = bool(re.search(r"\d", query))
-        has_math_words = bool(re.search(r"how many|how much|percent|left|remaining|total|calculate|compute|convert|degrees|joules|energy|watts", query.lower()))
-        if decision in ("docs","general") and has_numbers and has_math_words:
+        units = r"m/s|km/h|mph|m/s2|kg\b|grams?|newtons?|\bN\b|watts?|\bkW\b|\bWh\b|kWh|joules?|degrees?|°c|°f|seconds?|\bsec\b|minutes?|\bmin\b|hours?|metres?|meters?|\bkm\b|\bcm\b|\bmm\b|litres?|liters?|volts?|amps?|ohms?|hz\b|metres? per second"
+        has_quantity = bool(re.search(r"\d+\s*(?:" + units + r")", query, re.I))
+        has_math_words = bool(re.search(r"how many|how much|percent|left|remaining|total|calculat|compute|convert|long|height|time|velocity|speed|force|pressure|power|current|voltage|area|volume|mass|weight|accelerat|temperature|energy", query.lower()))
+        # self-contradiction repair: reason admits maths but decision says general/docs
+        # (negated mentions like "no calculation required" do NOT count)
+        reason_l = (data.get("reason","") or "").lower()
+        negated = bool(re.search(r"no (calculation|math|tool)|without (math|calculat)|not (require|need).*?(math|calculat|tool)", reason_l))
+        contradicts = decision in ("docs","general") and (not negated) and bool(re.search(r"calculat|physics|equation|numeric|math", reason_l))
+        if decision in ("docs","general") and ((has_quantity and has_math_words) or contradicts):
+            if contradicts:
+                import logging as _lg; _lg.getLogger("bigbrain").info("judge self-contradiction repaired: reason admits maths, forcing tool path")
             decision = "tool_only" if not evidence else "docs_plus_tool"
             if not tt:
                 tt = {"purpose": query[:80], "inputs": {}}
@@ -51,6 +59,25 @@ def judge(query, evidence, tool_descs, history_text=""):
             tt = {"purpose": tt, "inputs": {}}
         if not isinstance(tt, dict):
             tt = {"purpose": str(tt), "inputs": {}}
+        # empty tool_task on a tool path -> retry once, then deterministic extract
+        if decision in ("tool_only", "docs_plus_tool") and not (tt.get("purpose") or "").strip():
+            try:
+                raw2, usage2 = brain.chat_full("groq-slm", [{"role": "system", "content": JUDGE_SYSTEM + "\nYou MUST include tool_task with purpose and inputs. Empty tool_task is forbidden on tool decisions."}, {"role": "user", "content": user_block}], temperature=0)
+                m2 = re.search(r"\{.*\}", raw2, re.S)
+                d2 = json.loads(m2.group(0)) if m2 else {}
+                if isinstance(d2.get("tool_task"), dict) and (d2["tool_task"].get("purpose") or "").strip():
+                    tt = d2["tool_task"]
+                    import logging as _lg2; _lg2.getLogger("bigbrain").info("judge retry filled empty tool_task")
+            except Exception:
+                pass
+        if decision in ("tool_only", "docs_plus_tool") and not (tt.get("purpose") or "").strip():
+            # deterministic fallback: purpose = query, inputs from unit extraction
+            try:
+                from tools.factory import extract_inputs
+                tt = {"purpose": query[:120], "inputs": extract_inputs(query)}
+                import logging as _lg3; _lg3.getLogger("bigbrain").info("judge fallback: deterministic inputs %s", tt["inputs"])
+            except Exception:
+                tt = {"purpose": query[:120], "inputs": {}}
         log_llm_call(req_id, "default", "tool-judge", {"task_type":"tool_judge","complexity":"low"}, "groq-slm", brain.registry.get("groq-slm",{}).get("model_id",""), user_block, raw, usage, latency)
         import logging; logging.getLogger("bigbrain").info("judge req=%s decision=%s reason=%s task=%s", req_id, decision, data.get("reason","")[:50], str(tt.get("purpose",""))[:40])
         return {"decision":decision, "reason":data.get("reason",""), "tool_task":tt, "raw":raw, "request_id":req_id}
