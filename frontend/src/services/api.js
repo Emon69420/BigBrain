@@ -38,6 +38,9 @@ export async function me(){ return get("/auth/me"); }
 export async function getSecurityStatus(){ return get("/security/status"); }
 export async function getAllowlist(){ return get("/security/allowlist"); }
 export async function demoEgress(target){ return post("/security/demo-egress", target?{target}:{}); }
+// decision DNA (persisted per-answer record)
+export async function getDecisionByRequest(requestId){ return get(`/decisions/by-request/${encodeURIComponent(requestId)}`); }
+export async function getDecisionsByConversation(cid){ return get(`/conversations/${cid}/decisions`); }
 // chat threads
 export async function listConversations(){ return get("/conversations"); }
 export async function createConversation(title="New chat"){ return post("/conversations",{title}); }

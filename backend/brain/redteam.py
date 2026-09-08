@@ -14,7 +14,14 @@ import json
 import re
 
 NUM_RE = re.compile(r"-?\d[\d,]*\.?\d*\s?%?")
-CITE_RE = re.compile(r"\[(doc|tool):([^\]]+)\]")
+_FW_OPEN = chr(0x3010)
+_FW_CLOSE = chr(0x3011)
+CITE_RE = re.compile(
+    r"\[(doc|tool):([^\]]+)\]"
+    r"|" + _FW_OPEN + r"(doc|tool):([^" + _FW_CLOSE + r"]+)" + _FW_CLOSE
+)
+# Matches ASCII [doc:17] and fullwidth [doc:17] (U+3010/U+3011, which LLMs emit).
+# Fullwidth chars are built with chr() so the source stays pure ASCII.
 TAG_RE = re.compile(r"\b[A-Z]{1,4}[-‐‑]?\d+[A-Z]?\b")  # equipment tags (P-204, L-204A): IDs, not claims
 HEDGE_RE = re.compile(r"roughly|about|~|≈|approximately|around|almost|nearly|close to|up to|or so", re.I)
 
@@ -41,7 +48,8 @@ def _numbers(text):
 
 
 def _citations(text):
-    return [(m.group(1), m.group(2)) for m in CITE_RE.finditer(text or "")]
+    # alternation puts ASCII refs in groups 1-2, fullwidth refs in groups 3-4
+    return [((m.group(1) or m.group(3)), (m.group(2) or m.group(4))) for m in CITE_RE.finditer(text or "")]
 
 
 def deterministic_checks(answer, evidence, tool_used, question=""):

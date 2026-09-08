@@ -342,6 +342,18 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
     except Exception as e3:
         tool_trace.append(f"redteam harness failed open: {e3}")
         redteam_out = {"verdict": "flag", "findings": [f"red-team unavailable: {e3}"], "regenerated": False, "rejected_draft": None}
+    # --- decision DNA: persist one queryable row per answer (fail-open, never blocks) ---
+    decision_id = None
+    try:
+        from brain.decision import record_decision
+        decision_id = record_decision(
+            request_id, org_id, text, task, model_key, model_id,
+            evidence, tool_used, redteam_out, judge_out,
+        )
+        if decision_id:
+            tool_trace.append(f"decision: {decision_id}")
+    except Exception as e4:
+        tool_trace.append(f"decision record failed open: {e4}")
     out = {
         "task": task, "model": model_key, "model_id": model_id,
         "answer": answer, "mode": "harness-groq+localpg",
@@ -353,6 +365,7 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
         "tool_trace": tool_trace,
         "judge": judge_out,
         "redteam": redteam_out,
+        "decision_id": decision_id,
     }
     return out
 
