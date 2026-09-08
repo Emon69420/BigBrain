@@ -102,7 +102,7 @@ def find_tool(task_text):
     q = (task_text or "").lower()
     best = None
     best_score = 0
-    stop = {"calculate","compute","computing","using","across","from","with","for","and","the"}
+    stop = {"calculate","compute","computing","using","across","from","with","for","and","the","per","second","seconds","minutes","minute"}
     for t in _load_registry()["tools"]:
         blob = (t.get("desc","") + " " + t.get("full_desc","")).lower()
         blob_words = set(re.findall(r"[a-z0-9]+", blob))
@@ -121,7 +121,7 @@ def score_fit(task, entry):
     q = (task or "").lower()
     blob = (entry.get("desc","") + " " + entry.get("full_desc","")).lower()
     blob_words = set(re.findall(r"[a-z0-9]+", blob))
-    stop = {"calculate","compute","computing","using","across","from","with","for","and","the"}
+    stop = {"calculate","compute","computing","using","across","from","with","for","and","the","per","second","seconds","minutes","minute"}
     qwords = [w for w in re.findall(r"[a-z0-9]+", q) if len(w) >= 3 and w not in stop]
     if not qwords:
         qwords = [w for w in re.findall(r"[a-z0-9]+", q) if len(w) >= 3]
