@@ -52,9 +52,10 @@ function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout })
   }
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand"><span className="brand-mark"><BrainMark size={18}/></span> BigBrain</div>
-      <div style={{padding:"10px 12px 0"}}>
-        <button className="btn" style={{width:"100%"}} onClick={onNew}>+ New chat</button>
+      <div className="sidebar-brand"><span className="brand-mark"><BrainMark size={18}/></span> BigBrain <span style={{marginLeft:"auto", fontSize:10, color:"#A5B4FC", border:"1px solid rgba(255,255,255,.08)", background:"rgba(255,255,255,.06)", padding:"3px 7px", borderRadius:999, fontWeight:600, letterSpacing:".04em"}}>Sovereign</span></div>
+      <div style={{padding:"12px 12px 0"}}>
+        <button className="btn btn-primary" style={{width:"100%", borderRadius:999, fontWeight:700, justifyContent:"center", display:"flex"}} onClick={onNew}>+ New chat</button>
+        <div style={{fontSize:11, color:"#7C819A", marginTop:8, paddingLeft:2}}> {threads.length} threads · org-isolated</div>
       </div>
       <nav className="sidebar-nav threads-nav">
         {threads.map(t=>(
@@ -73,12 +74,17 @@ function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout })
             )}
           </div>
         ))}
-        {!threads.length && <div className="small muted" style={{padding:"4px 10px"}}>No chats yet.</div>}
+        {!threads.length && <div className="small muted" style={{padding:"10px", textAlign:"center", border:"1px dashed #1E2128", borderRadius:12, marginTop:6}}>No chats yet.<br/><span style={{fontSize:11}}>Start a new conversation</span></div>}
       </nav>
       <div className="nav-foot">
-        <div style={{fontWeight:700, color:"var(--ink)"}}>{user?.name || user?.email || "—"}</div>
-        <div style={{fontSize:12}}>{user?.email || ""}</div>
-        <button className="btn btn-ghost" style={{marginTop:8, paddingLeft:0}} onClick={onLogout}>Sign out</button>
+        <div style={{display:"flex", gap:10, alignItems:"center"}}>
+          <div style={{width:32,height:32,borderRadius:999,background:"linear-gradient(135deg,#6366F1,#8B5CF6)",display:"grid",placeItems:"center",color:"#fff",fontWeight:700,fontSize:11,flex:"none"}}>{(user?.name||user?.email||"UC").split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase()}</div>
+          <div style={{minWidth:0}}>
+            <div style={{fontWeight:650, color:"var(--ink-app)", fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user?.name || user?.email || "—"}</div>
+            <div style={{fontSize:11, color:"#7C819A", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user?.email || ""}</div>
+          </div>
+        </div>
+        <button className="btn btn-ghost" style={{marginTop:10, paddingLeft:0, fontSize:12}} onClick={onLogout}>Sign out →</button>
       </div>
     </aside>
   );
@@ -173,7 +179,7 @@ function AppShell({ user, orgs, onLogout }){
         <div className="content">
           {view==="chat" && (
             <>
-              {!cid && <div className="card" style={{marginBottom:12}}>Pick a chat from the panel, or start a <button className="btn" style={{padding:"2px 10px"}} onClick={handleNew}>+ New chat</button></div>}
+              {!cid && <div className="card" style={{marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, borderStyle:"dashed"}}><span style={{fontSize:13, color:"#6B7280"}}>Pick a chat from the panel, or start a new conversation.</span><button className="btn" style={{padding:"6px 14px", borderRadius:999, background:"#08090C", color:"#fff", borderColor:"#08090C"}} onClick={handleNew}>+ New chat</button></div>}
               <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase}/>
               <EvidencePanel open={!!evMsg} onClose={()=>{setEvMsg(null); setHighlight(null);}} msg={evMsg} highlightDoc={highlight}/>
             </>
@@ -181,15 +187,17 @@ function AppShell({ user, orgs, onLogout }){
           {view==="kb" && <KBView/>}
           {view==="tools" && <ToolsView/>}
           {view==="ingest" && (
-            <div>
-              <h2>Ingest</h2>
-              <p style={{color:"var(--muted)"}}>Files land in <strong>{orgId}</strong> only. Org-divided, never cross-leaks.</p>
-              <div className="card" style={{marginTop:12}}>
+            <div style={{maxWidth:720, margin:"0 auto"}}>
+              <h2 style={{fontSize:20, margin:"0 0 6px", color:"var(--ink-app)"}}>Ingest</h2>
+              <p style={{color:"var(--muted-app)", fontSize:13}}>Files land in <strong style={{color:"var(--ink-app)"}}>{orgId}</strong> only. Org-divided, never cross-leaks.</p>
+              <div className="card" style={{marginTop:16}}>
+                <div className="eyebrow" style={{marginBottom:10}}>File upload</div>
                 <FileUpload onFile={uploadFile} uploading={uploading}/>
-                <div style={{height:12}}/>
+                <div style={{height:16, borderTop:"1px solid rgba(255,255,255,.07)", marginTop:16, paddingTop:16}}/>
+                <div className="eyebrow" style={{marginBottom:10}}>Or paste text</div>
                 <TextIngest onIngest={uploadText} uploading={uploading}/>
-                {last && <p style={{color:"green"}}>Ingested #{last.id} into {last.org_id}</p>}
-                {ingestError && <p style={{color:"var(--danger)"}}>{ingestError}</p>}
+                {last && <p style={{color:"#22C55E", marginTop:12, fontSize:13, fontWeight:600, background:"rgba(34,197,94,.1)", border:"1px solid rgba(34,197,94,.2)", padding:"8px 10px", borderRadius:10}}>✓ Ingested #{last.id} into {last.org_id}</p>}
+                {ingestError && <p style={{color:"var(--danger)", marginTop:12, fontSize:13, background:"rgba(248,113,113,.1)", border:"1px solid rgba(248,113,113,.2)", padding:"8px 10px", borderRadius:10}}>{ingestError}</p>}
               </div>
             </div>
           )}

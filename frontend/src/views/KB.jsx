@@ -61,7 +61,7 @@ export function KBView(){
   async function openDoc(d){
     setSel(d);
     try{
-      const r=await fetch(`${import.meta.env.VITE_API_URL||"http://localhost:8000"}/ask`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg()},credentials:"include",body:JSON.stringify({text:d.title, retrieve:true})}).then(x=>x.json());
+      const r=await fetch(`${import.meta.env.VITE_API_URL||"https://7db2-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/ask`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include",body:JSON.stringify({text:d.title, retrieve:true})}).then(x=>x.json());
       setChunks(r.evidence?.filter(e=>e.doc_id===d.id)||[]);
     }catch{ setChunks([]); }
   }

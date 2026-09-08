@@ -6,9 +6,11 @@ export function FileUpload({ onFile, uploading }) {
     e.target.value = "";
   }
   return (
-    <label style={{ display: "inline-block", border: "1px dashed #888", padding: 12, cursor: "pointer" }}>
+    <label className="ingest-drop" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, cursor:"pointer", opacity: uploading? .6:1 }}>
       <input type="file" accept=".txt,.md,.csv" onChange={handle} disabled={uploading} hidden />
-      {uploading ? "Uploading..." : "Click to upload .txt / .md / .csv"}
+      <span style={{width:36,height:36,borderRadius:999,background:"#08090C",color:"#fff",display:"grid",placeItems:"center",fontSize:16}}>↑</span>
+      <span style={{fontSize:13,fontWeight:650,color:"var(--ink-dark)"}}>{uploading ? "Uploading..." : "Click to upload .txt / .md / .csv"}</span>
+      <span style={{fontSize:11,color:"#9AA0B0"}}>Drag & drop or browse · only .txt/.md/.csv</span>
     </label>
   );
 }
@@ -24,10 +26,10 @@ export function TextIngest({ onIngest, uploading }) {
     e.target.reset();
   }
   return (
-    <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 480 }}>
-      <input name="title" placeholder="Title (e.g. SOP-17)" />
-      <textarea name="content" rows={4} placeholder="Paste document text here..." />
-      <button disabled={uploading}>{uploading ? "..." : "Ingest text"}</button>
+    <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 520 }}>
+      <input className="input" name="title" placeholder="Title (e.g. SOP-17)" style={{background:"#fff"}} />
+      <textarea className="textarea" name="content" rows={4} placeholder="Paste document text here..." style={{background:"#fff", minHeight:110}} />
+      <button className="btn" style={{background:"#08090C", color:"#fff", borderColor:"#08090C", borderRadius:999, padding:"10px 16px", fontWeight:700, alignSelf:"flex-start"}} disabled={uploading}>{uploading ? "Ingesting..." : "Ingest text →"}</button>
     </form>
   );
 }
