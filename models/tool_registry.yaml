@@ -12,7 +12,7 @@ tools:
     Returns: time_seconds (float)'
   status: unverified
   version: 1
-  uses: 1
+  uses: 2
   created_by: auto
 - name: compute_total_energy_required
   path: backend/tools/custom/compute_total_energy_required.py
@@ -25,7 +25,7 @@ tools:
     Returns: energy_j (float)'
   status: unverified
   version: 1
-  uses: 1
+  uses: 2
   created_by: auto
 - name: compute_microwave_runtime
   path: backend/tools/custom/compute_microwave_runtime.py
@@ -38,5 +38,60 @@ tools:
     Returns: runtime_seconds (float)'
   status: unverified
   version: 1
-  uses: 1
+  uses: 2
+  created_by: auto
+- name: calculate_skydiver_dynamics_under
+  path: backend/tools/custom/calculate_skydiver_dynamics_under.py
+  desc: Skydiver dynamics calculator - computes descent time and impact velocity under
+    gravity with drag
+  full_desc: 'Skydiver dynamics calculator - computes descent time and impact velocity
+    under gravity with drag
+
+    Args: mass_kg (float), drag_coefficient (float), area_m2 (float), air_density
+    (float), height_m (float), time_step (float, optional, default=0.1)
+
+    Returns: descent_time_s (float), impact_velocity_m_s (float)'
+  status: unverified
+  version: 1
+  uses: 0
+  created_by: auto
+- name: compute_net_acceleration
+  path: backend/tools/custom/compute_net_acceleration.py
+  desc: Weight, net force, and acceleration calculator - computes weight, net force,
+    and acceleration from mass, gravity, and drag
+  full_desc: 'Weight, net force, and acceleration calculator - computes weight, net
+    force, and acceleration from mass, gravity, and drag
+
+    Args: mass (float), gravity (float), drag (float)
+
+    Returns: weight_N (float), net_force_N (float), acceleration_m_s2 (float)'
+  status: unverified
+  version: 1
+  uses: 3
+  created_by: auto
+- name: compute_torque_from_force
+  path: backend/tools/custom/compute_torque_from_force.py
+  desc: Compute torque from force and distance.
+  full_desc: 'Compute torque from force and distance.
+
+
+    Given a force in newtons and a perpendicular distance in meters, returns the torque
+    in newton‑meters.'
+  status: unverified
+  version: 1
+  uses: 2
+  created_by: auto
+- name: compute_tesla_battery_usage
+  path: backend/tools/custom/compute_tesla_battery_usage.py
+  desc: Tesla battery range estimator - computes estimated driving range for a Tesla
+    Model S
+  full_desc: 'Tesla battery range estimator - computes estimated driving range for
+    a Tesla Model S
+
+    Args:
+
+    Returns: range_miles (float)'
+  status: unverified
+  version: 1
+  uses: 2
   created_by: auto

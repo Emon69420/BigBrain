@@ -31,7 +31,7 @@ def _call_llm_for_code(task, sample, error=None, prev_code="", org_id="default")
     return code, {"raw": raw, "usage": usage, "request_id": req_id}
 
 def ensure_tool(task, sample_input=None, created_by="agent", org_id="default"):
-    """Registry hit -> return reused entry (0 build). Else LLM build->test->fix up to 3 tries."""
+    """Hit -> reuse (no build). Miss -> LLM build with frozen inputs as exact signature, gated."""
     hit = find_tool(task)
     if hit:
         import logging
@@ -39,13 +39,46 @@ def ensure_tool(task, sample_input=None, created_by="agent", org_id="default"):
         return {"hit": True, "entry": hit, "reused": True, "trace": ["registry hit: " + hit["name"] + f" (uses {hit.get('uses',0)}, 0 rebuild)"]}
 
     trace = ["registry miss: " + task[:60]]
+    # gate: frozen inputs keys must match built def main params exactly
+    frozen_keys = set(sample_input.keys()) if isinstance(sample_input, dict) else set()
     prev_code = ""
     last_err = None
     for attempt in range(3):
         trace.append(f"build attempt {attempt+1}")
         code, meta = _call_llm_for_code(task, sample_input, error=last_err, prev_code=prev_code, org_id=org_id)
         prev_code = code
-        # try save (create_tool does test)
+        # gate: frozen keys must match exactly, no defaults, no extra params
+        if frozen_keys:
+            import ast
+            try:
+                tree = ast.parse(code)
+                fn = next((n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "main"), None)
+                if fn:
+                    params = {a.arg for a in fn.args.args}
+                    has_defaults = bool(fn.args.defaults or fn.args.kw_defaults)
+                    if has_defaults:
+                        last_err = "forbidden default values: all params must be required variables"
+                        trace.append(f"gate failed: {last_err}")
+                        continue
+                    if params != frozen_keys:
+                        last_err = f"signature mismatch: expected {sorted(frozen_keys)}, got {sorted(params)}"
+                        trace.append(f"gate failed: {last_err}")
+                        continue
+            except Exception as e:
+                last_err = f"gate parse failed: {e}"
+                trace.append(f"gate failed: {last_err}")
+                continue
+        else:
+            # no frozen inputs -> tool must have at least 1 required param, no defaults
+            import ast
+            try:
+                tree = ast.parse(code)
+                fn = next((n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "main"), None)
+                if fn and (fn.args.defaults or fn.args.kw_defaults):
+                    last_err = "forbidden default values"
+                    trace.append(f"gate failed: {last_err}")
+                    continue
+            except: pass
         res = create_tool(_slug(task), code, sample_input, created_by=created_by)
         if res.get("saved"):
             trace.append(f"saved {res['entry']['name']}")

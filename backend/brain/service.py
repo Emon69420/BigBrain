@@ -54,15 +54,20 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                 # 1) selector decides sufficient/partial/none
                 sel = select_fn(tool_task_obj, _list())
                 tool_trace.append(f"selector: {sel.get('verdict')} selected {len(sel.get('selected',[]))} missing {len(sel.get('missing',[]))}")
-                # 2) build missing (exactly those not covered)
+                # 2) build missing — separate reused (hit) vs truly built
                 built = []
+                reused = []
                 for miss in sel.get("missing", []):
                     purpose = miss.get("purpose") or miss.get("task") or tool_task_str
                     inputs = miss.get("inputs", {})
                     t_res = ensure_tool(purpose, sample_input=inputs if inputs else None, created_by="auto", org_id=org_id)
                     tool_trace.extend(t_res.get("trace", []))
                     if t_res.get("entry"):
-                        built.append(t_res["entry"])
+                        if t_res.get("hit"):
+                            reused.append(t_res["entry"])
+                            tool_trace.append(f"reused {t_res['entry']['name']} (0 rebuild)")
+                        else:
+                            built.append(t_res["entry"])
                     else:
                         tool_trace.append(f"build failed for {purpose}: {t_res.get('error')}")
                 # 3) caller: run selected (existing) + built (new) — deterministic, no half-built
@@ -70,25 +75,44 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                 to_run = sel.get("selected", [])
                 # if selector said sufficient with one tool, run it; if chain (multiple), run via execute_chain
                 if len(to_run) == 1 and not built:
-                    # single exact hit reuse
                     entry = next((t for t in _list() if t["name"]==to_run[0].get("tool")), None)
                     if entry:
-                        # extract args from judge inputs + arg_map
-                        arg_map = to_run[0].get("arg_map", {})
+                        inputs = tool_task_obj.get("inputs", {}) or {}
+                        # always do fuzzy to map inputs like force -> force_N
+                        import inspect
+                        try:
+                            sig = inspect.signature(__import__('tools.factory', fromlist=['load_tool']).load_tool(entry["name"]).main)
+                            expected = list(sig.parameters.keys())
+                        except:
+                            expected = []
                         args = {}
-                        for tool_arg, input_key in (arg_map or {}).items():
-                            if input_key in (tool_task_obj.get("inputs",{}) or {}):
-                                args[tool_arg] = tool_task_obj["inputs"][input_key]
+                        # try arg_map first
+                        arg_map = to_run[0].get("arg_map", {}) or {}
+                        if arg_map:
+                            for tool_arg, input_key in arg_map.items():
+                                # tool_arg may be without suffix, map to expected via base
+                                exp_match = next((e for e in expected if e == tool_arg or e.split("_")[0] == tool_arg or tool_arg in e), tool_arg)
+                                if input_key in inputs:
+                                    args[exp_match] = inputs[input_key]
+                                elif tool_arg in inputs:
+                                    args[exp_match] = inputs[tool_arg]
+                        # fill any missing expected via fuzzy on remaining inputs
+                        for exp in expected:
+                            if exp not in args:
+                                base = exp.split("_")[0]
+                                for k,v in inputs.items():
+                                    if k == exp or k == base or base in k or k in base:
+                                        args[exp] = v
+                                        break
                         if not args:
-                            # fallback: ask LLM to map correctly using full_desc
+                            args = inputs
+                        # reject empty-args success (tool with defaults that hides missing inputs)
+                        if run_res.get("ok") and not args:
                             try:
-                                full = entry.get("full_desc","")
-                                ap = f"Tool {entry['name']} expects:\n{full}\nInputs available: {tool_task_obj.get('inputs',{})}\nReturn JSON with exact tool arg names. Return JSON only."
-                                raw,_ = _brain.chat_full("groq-slm", [{"role":"user","content":ap}])
-                                import json, re; m=re.search(r"\{.*\}", raw, re.S)
-                                if m: args=json.loads(m.group(0))
-                            except: args = tool_task_obj.get("inputs",{})
-                        run_res = run_tool(entry["name"], args)
+                                sig2 = __import__('inspect').signature(__import__('tools.factory', fromlist=['load_tool']).load_tool(entry["name"]).main)
+                                if len(sig2.parameters) > 0:
+                                    run_res = {"ok": False, "error": "tool ran without inputs but requires params — not trusted"}
+                            except: pass
                         newly = False
                         if run_res.get("ok"):
                             tool_used = {"name": entry["name"], "hit": True, "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": newly}
@@ -103,8 +127,10 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                         steps.append({"tool": s.get("tool"), "args": {k: tool_task_obj.get("inputs",{}).get(v, v) for k,v in (s.get("arg_map") or {}).items()}})
                     # append built as final steps if any
                     for b in built:
-                        # try to run built with original inputs
                         steps.append({"tool": b["name"], "args": tool_task_obj.get("inputs",{})})
+                    for r in reused:
+                        if not any(s["tool"]==r["name"] for s in steps):
+                            steps.append({"tool": r["name"], "args": tool_task_obj.get("inputs",{})})
                     if not steps and built:
                         steps = [{"tool": built[0]["name"], "args": tool_task_obj.get("inputs",{})}]
                     if steps:
