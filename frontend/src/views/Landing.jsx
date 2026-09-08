@@ -14,13 +14,7 @@ export function Landing({ onEnter }){
           <span style={{width:28,height:28,borderRadius:8,background:"linear-gradient(135deg,#6366F1,#7C3AED)",display:"grid",placeItems:"center",color:"#fff"}}><BrainMark size={18}/></span>
           <strong style={{fontSize:16, letterSpacing:"-.01em"}}>BigBrain</strong>
         </div>
-        <nav style={{display:"flex", gap:28, fontSize:13, color:"#9AA0B8", fontWeight:500}}>
-          <span style={{cursor:"pointer"}}>Product</span>
-          <span style={{cursor:"pointer"}}>Security</span>
-          <span style={{cursor:"pointer"}}>Docs</span>
-          <span style={{cursor:"pointer"}}>About</span>
-        </nav>
-        <button onClick={onEnter} style={{background:"linear-gradient(135deg,#6366F1,#7C3AED)", color:"#fff", border:"none", borderRadius:999, padding:"8px 16px", fontSize:13, fontWeight:650, cursor:"pointer", display:"flex", alignItems:"center", gap:6, boxShadow:"0 4px 16px rgba(99,102,241,.35)"}}>Login <span>→</span></button>
+        <button onClick={onEnter} style={{marginLeft:"auto", background:"linear-gradient(135deg,#6366F1,#7C3AED)", color:"#fff", border:"none", borderRadius:999, padding:"8px 16px", fontSize:13, fontWeight:650, cursor:"pointer", display:"flex", alignItems:"center", gap:6, boxShadow:"0 4px 16px rgba(99,102,241,.35)"}}>Login <span>→</span></button>
       </div>
 
       {/* hero */}
