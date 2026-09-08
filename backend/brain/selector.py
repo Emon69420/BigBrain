@@ -29,7 +29,7 @@ def select(task_obj, tool_descs):
     req_id = new_request_id()
     t0 = timed()
     try:
-        raw, usage = brain.chat_full("groq-slm", [{"role":"system","content":prompt},{"role":"user","content":purpose}])
+        raw, usage = brain.chat_full("groq-slm", [{"role":"system","content":prompt},{"role":"user","content":purpose}], temperature=0)
         latency = elapsed_ms(t0)
         m = re.search(r"\{.*\}", raw, re.S)
         data = json.loads(m.group(0)) if m else {}

@@ -1,168 +1,42 @@
 tools:
-- name: add_numbers
-  path: backend/tools/custom/add_numbers.py
-  desc: Add numbers - adds two ints
-  full_desc: 'Add numbers - adds two ints
+- name: compute_temperature_raise
+  path: backend/tools/custom/compute_temperature_raise.py
+  desc: Temperature rise calculator - computes time required to raise temperature
+    of a substance
+  full_desc: 'Temperature rise calculator - computes time required to raise temperature
+    of a substance
 
-    Args: a,b
+    Args: initial_temp_c (float), final_temp_c (float), mass_g (float), specific_heat_j_per_g_c
+    (float), power_w (float)
 
-    Returns: sum'
-  status: unverified
-  version: 1
-  uses: 2
-  created_by: user
-- name: mul_numbers
-  path: backend/tools/custom/mul_numbers.py
-  desc: Multiply numbers
-  full_desc: 'Multiply numbers
-
-    Args: x,y
-
-    Returns: product'
-  status: unverified
-  version: 1
-  uses: 5
-  created_by: user
-- name: simulate_blast_load_on
-  path: backend/tools/custom/simulate_blast_load_on.py
-  desc: Blast load calculator - computes peak blast pressure on a wall from a TNT
-    charge
-  full_desc: 'Blast load calculator - computes peak blast pressure on a wall from
-    a TNT charge
-
-    Args: charge_kg (float), distance_m (float)
-
-    Returns: pressure_kPa (float)'
-  status: unverified
-  version: 1
-  uses: 1
-  created_by: agent
-- name: calculate_pressure_drop_across
-  path: backend/tools/custom/calculate_pressure_drop_across.py
-  desc: Darcy-Weisbach pressure drop calculator - computes pressure drop across a
-    pipe
-  full_desc: 'Darcy-Weisbach pressure drop calculator - computes pressure drop across
-    a pipe
-
-    Args: flow_rate_m3s (float), diameter_m (float), length_m (float), roughness_m
-    (float), density_kgm3 (float), viscosity_pa_s (float)
-
-    Returns: delta_p_pa (float)'
-  status: unverified
-  version: 1
-  uses: 0
-  created_by: agent
-- name: compute_heat_transfer_coefficient
-  path: backend/tools/custom/compute_heat_transfer_coefficient.py
-  desc: Heat transfer coefficient calculator for pipe flow
-  full_desc: 'Heat transfer coefficient calculator for pipe flow
-
-    Args: diameter_m (float), temp_K (float), velocity_m_s (float)
-
-    Returns: h_W_m2K (float)'
-  status: unverified
-  version: 1
-  uses: 0
-  created_by: agent
-- name: calculate_bending_moment_of
-  path: backend/tools/custom/calculate_bending_moment_of.py
-  desc: Bending moment calculator - computes max bending moment for a simply supported
-    beam with a centered point load
-  full_desc: 'Bending moment calculator - computes max bending moment for a simply
-    supported beam with a centered point load
-
-    Args: length_m (float), load_N (float)
-
-    Returns: moment_Nm (float)'
-  status: unverified
-  version: 1
-  uses: 1
-  created_by: agent
-- name: calculate_torque_for_force
-  path: backend/tools/custom/calculate_torque_for_force.py
-  desc: Torque calculator - computes torque from force and lever arm
-  full_desc: 'Torque calculator - computes torque from force and lever arm
-
-    Args: force_N (float), distance_m (float)
-
-    Returns: torque_Nm (float)'
+    Returns: time_seconds (float)'
   status: unverified
   version: 1
   uses: 1
   created_by: auto
-- name: calculate_kinetic_energy_for
-  path: backend/tools/custom/calculate_kinetic_energy_for.py
-  desc: Kinetic energy calculator - computes kinetic energy of a moving object
-  full_desc: 'Kinetic energy calculator - computes kinetic energy of a moving object
+- name: compute_total_energy_required
+  path: backend/tools/custom/compute_total_energy_required.py
+  desc: Energy calculator - computes total energy required to heat a substance
+  full_desc: 'Energy calculator - computes total energy required to heat a substance
 
-    Args: mass (float), velocity (float)
+    Args: initial_temp_c (float), final_temp_c (float), mass_g (float), specific_heat_j_per_g_c
+    (float), power_w (float)
 
-    Returns: kinetic_energy (float)'
-  status: unverified
-  version: 1
-  uses: 3
-  created_by: auto
-- name: write_a_python_function
-  path: backend/tools/custom/write_a_python_function.py
-  desc: List sorter - returns a sorted copy of the input list
-  full_desc: 'List sorter - returns a sorted copy of the input list
-
-    Args: items (list) – a list of comparable elements
-
-    Returns: sorted_items (list) – the input list in ascending order'
+    Returns: energy_j (float)'
   status: unverified
   version: 1
   uses: 1
   created_by: auto
-- name: calculate_factorial_of
-  path: backend/tools/custom/calculate_factorial_of.py
-  desc: Factorial calculator - computes factorial of a given integer
-  full_desc: 'Factorial calculator - computes factorial of a given integer
+- name: compute_microwave_runtime
+  path: backend/tools/custom/compute_microwave_runtime.py
+  desc: Microwave runtime calculator - computes heating time for given parameters
+  full_desc: 'Microwave runtime calculator - computes heating time for given parameters
 
-    Args: n (int) - integer to compute factorial for (default 5)
+    Args: initial_temp_c (float), final_temp_c (float), mass_g (float), specific_heat_j_per_g_c
+    (float), power_w (float)
 
-    Returns: result (int) - factorial of n'
-  status: unverified
-  version: 1
-  uses: 2
-  created_by: auto
-- name: custom_tool
-  path: backend/tools/custom/custom_tool.py
-  desc: Multiply two numbers - computes product of two floats
-  full_desc: 'Multiply two numbers - computes product of two floats
-
-    Args: a (float), b (float)
-
-    Returns: product (float)'
-  status: unverified
-  version: 1
-  uses: 0
-  created_by: auto
-- name: compute_temperature_difference_to
-  path: backend/tools/custom/compute_temperature_difference_to.py
-  desc: Temperature difference calculator - computes difference between two Celsius
-    temperatures
-  full_desc: 'Temperature difference calculator - computes difference between two
-    Celsius temperatures
-
-    Args: start_c (float), end_c (float)
-
-    Returns: diff_c (float)'
+    Returns: runtime_seconds (float)'
   status: unverified
   version: 1
   uses: 1
-  created_by: auto
-- name: compute_microwave_heating_time
-  path: backend/tools/custom/compute_microwave_heating_time.py
-  desc: Microwave heating time calculator - computes heating time given energy and
-    power
-  full_desc: 'Microwave heating time calculator - computes heating time given energy
-    and power
-
-    Args: energy_j (float), power_w (float)
-
-    Returns: time_s (float)'
-  status: unverified
-  version: 1
-  uses: 0
   created_by: auto

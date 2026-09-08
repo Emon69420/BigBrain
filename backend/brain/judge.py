@@ -1,20 +1,21 @@
 """LLM judge — after retrieval, sees evidence + tools + query, picks path."""
 import json, re
 
-JUDGE_SYSTEM = """You are the strict gate for BigBrain. Every message needing numbers MUST use a tool. Never let maths be guessed.
+JUDGE_SYSTEM = """You are the strict gate for BigBrain. Every maths/physics/coding message MUST use a tool. Never let maths be guessed.
 
 Decisions:
 - docs: ONLY factual lookup with evidence and NO maths
-- docs_plus_tool: evidence has facts BUT you still need to calculate/sort/code/simulate
+- docs_plus_tool: evidence has facts BUT you still need to calculate
 - tool_only: pure maths/physics/coding word problem
 - general: greeting/smalltalk only
 
-Hard rule: ANY maths/physics/coding beyond talking & fact lookup MUST be tool_only or docs_plus_tool. Never docs/general for maths.
+Hard rule: ANY maths beyond talking & fact lookup MUST be tool_only/docs_plus_tool.
 
-If tool path, return tool_task as JSON with purpose and inputs (numbers extracted, no pre-computed results):
-{"decision":"...","reason":"...","tool_task":{"purpose":"compute energy and percent","inputs":{"distance_km":200,"consumption_Wh_per_km":300,"capacity_kWh":75}}}
-
-Rules for tool_task.inputs: exact numbers from query only, units stripped, no computed results, no call-syntax like mul_numbers(...).
+Tool_task rules (critical):
+- tool_task.purpose MUST be a concise imperative rephrase of the USER'S query intent (what they asked to calculate), NEVER a description of an evidence doc.
+- tool_task.inputs = exact numbers from the query only (units stripped), never computed results, never call-syntax.
+Example for refinery flow: {"purpose":"compute litres per second from 0.5 m3/s, seconds to fill 1800000 litres tank, and minutes","inputs":{"flow_m3_per_s":0.5,"litres_per_m3":1000,"tank_litres":1800000}}
+Example for pressure: {"purpose":"compute pressure drop across pipeline","inputs":{...}}
 
 Respond strictly as JSON: {"decision":"...","reason":"...","tool_task":{"purpose":"...","inputs":{}} or ""}"""
 
@@ -30,7 +31,7 @@ def judge(query, evidence, tool_descs, history_text=""):
     req_id = new_request_id()
     t0 = timed()
     try:
-        raw, usage = brain.chat_full("groq-slm", [{"role":"system","content":JUDGE_SYSTEM},{"role":"user","content":user_block}])
+        raw, usage = brain.chat_full("groq-slm", [{"role":"system","content":JUDGE_SYSTEM},{"role":"user","content":user_block}], temperature=0)
         latency = elapsed_ms(t0)
         m = re.search(r"\{.*\}", raw, re.S)
         data = json.loads(m.group(0)) if m else {}

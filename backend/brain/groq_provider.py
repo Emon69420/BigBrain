@@ -46,12 +46,14 @@ class GroqBrain(BrainProvider):
     def chat(self, model_key, messages, **kw):
         return self.chat_full(model_key, messages, **kw)[0]
 
-    def chat_full(self, model_key, messages, **kw):
+    def chat_full(self, model_key, messages, temperature=None, **kw):
         """Returns (text, usage_dict). usage_dict has prompt_tokens etc. Old chat() untouched."""
-        resp = self.client.chat.completions.create(
-            model=get_model_id(self.registry, model_key),
-            messages=messages,
-        )
+        kwargs = {"model": get_model_id(self.registry, model_key), "messages": messages}
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        # pass through any extra Groq params
+        kwargs.update(kw)
+        resp = self.client.chat.completions.create(**kwargs)
         text = resp.choices[0].message.content
         usage = None
         try:
