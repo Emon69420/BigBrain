@@ -1,25 +1,38 @@
 tools:
-- name: add_numbers
-  path: backend/tools/custom/add_numbers.py
-  desc: Add numbers - adds two ints
-  full_desc: 'Add numbers - adds two ints
+- name: compute_hydraulic_power_in
+  path: backend/tools/custom/compute_hydraulic_power_in.py
+  desc: Hydraulic Power Calculator
+  full_desc: 'Hydraulic Power Calculator
 
-    Args: a,b
 
-    Returns: sum'
-  status: unverified
-  version: 1
-  uses: 2
-  created_by: user
-- name: mul_numbers
-  path: backend/tools/custom/mul_numbers.py
-  desc: Multiply numbers
-  full_desc: 'Multiply numbers
-
-    Args: x,y
-
-    Returns: product'
+    Computes hydraulic power in kilowatts from volumetric flow rate and pressure.'
   status: unverified
   version: 1
   uses: 1
-  created_by: user
+  created_by: auto
+- name: compute_energy_consumption_in
+  path: backend/tools/custom/compute_energy_consumption_in.py
+  desc: Energy consumption calculator - computes energy in kWh from power and time
+  full_desc: 'Energy consumption calculator - computes energy in kWh from power and
+    time
+
+    Args: power_kW (float), time_h (float)
+
+    Returns: energy_kWh (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto
+- name: compute_hydraulic_power_from
+  path: backend/tools/custom/compute_hydraulic_power_from.py
+  desc: Hydraulic power calculator - computes hydraulic power from flow rate and pressure
+  full_desc: 'Hydraulic power calculator - computes hydraulic power from flow rate
+    and pressure
+
+    Args: flow_m3_per_s (float), pressure_pa (float)
+
+    Returns: power_watts (float)'
+  status: unverified
+  version: 1
+  uses: 2
+  created_by: auto

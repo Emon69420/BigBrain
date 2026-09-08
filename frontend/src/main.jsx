@@ -8,12 +8,13 @@ import { Login } from "./views/Login.jsx";
 import { OrgSelect } from "./views/OrgSelect.jsx";
 import { ChatView, EvidencePanel } from "./views/Chat.jsx";
 import { KBView } from "./views/KB.jsx";
+import { ToolsView } from "./views/Tools.jsx";
 import { FileUpload, TextIngest } from "./components/FileUpload.jsx";
 import { useIngest } from "./hooks/useIngest.js";
 
 function Sidebar({ view, setView, user, onLogout, orgId }){
   const items=[
-    ["chat","Chat"],["kb","Knowledge Base"],["ingest","Ingest"],
+    ["chat","Chat"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],
   ];
   return (
     <aside className="sidebar">
@@ -65,8 +66,15 @@ function AppShell({ user, orgs, onLogout }){
     try{
       setPhase("reading");
       const ans=await api.askQuestion(text);
+      // show tool building/running if judge decided to use/build a tool (before writing)
+      if(ans.tool_used){
+        if(!ans.tool_used.hit) setPhase("building");
+        else setPhase("running");
+        // let the pill show for a beat before writing
+        await new Promise(r=>setTimeout(r, ans.tool_used.hit ? 300 : 900));
+      }
       setPhase("writing");
-      await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id});
+      await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id, tool_used:ans.tool_used, tool_trace:ans.tool_trace, general_knowledge:ans.general_knowledge, judge:ans.judge});
       await loadMessages(id);
     } finally{ setAskLoading(false); setTimeout(()=>setPhase(null), 800); }
     loadThreads();
@@ -104,6 +112,7 @@ function AppShell({ user, orgs, onLogout }){
             </>
           )}
           {view==="kb" && <KBView/>}
+          {view==="tools" && <ToolsView/>}
           {view==="ingest" && (
             <div>
               <h2>Ingest</h2>
