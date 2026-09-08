@@ -56,17 +56,18 @@ def _embedding_for(query):
 
 def _fetch_candidates(qvec, org_id, limit):
     conn = get_conn(); cur = conn.cursor()
-    # only chunks with embedding
+    # leaves only (parents are context, never retrieval keys); old NULL-level rows count as leaves
     cur.execute(
         """SELECT c.id, c.content, c.doc_id, d.title, d.dept, d.class,
-                  (c.embedding <=> %s::vector) AS distance
+                  (c.embedding <=> %s::vector) AS distance, c.parent_id
            FROM chunks c JOIN documents d ON d.id=c.doc_id
            WHERE c.org_id=%s AND c.embedding IS NOT NULL
+             AND (c.chunk_level IS NULL OR c.chunk_level='leaf')
            ORDER BY c.embedding <=> %s::vector LIMIT %s;""",
         (qvec, org_id, qvec, limit),
     )
     rows = cur.fetchall(); cur.close(); conn.close()
-    return [{"chunk_id": r[0], "content": r[1], "doc_id": r[2], "title": r[3], "dept": r[4], "class": r[5], "distance": float(r[6])} for r in rows]
+    return [{"chunk_id": r[0], "content": r[1], "doc_id": r[2], "title": r[3], "dept": r[4], "class": r[5], "distance": float(r[6]), "parent_id": r[7]} for r in rows]
 
 def _keyword_candidates(query, org_id):
     kws = query.strip().replace("%","")
@@ -77,13 +78,13 @@ def _keyword_candidates(query, org_id):
     q = " OR ".join(["(d.title ILIKE %s OR c.content ILIKE %s)"]*len(toks))
     params=[]; 
     for t in toks: params += [f"%{t}%", f"%{t}%"]
-    cur.execute(f"""SELECT DISTINCT ON (c.id) c.id, c.content, c.doc_id, d.title, d.dept, d.class
+    cur.execute(f"""SELECT DISTINCT ON (c.id) c.id, c.content, c.doc_id, d.title, d.dept, d.class, c.parent_id
            FROM chunks c JOIN documents d ON d.id=c.doc_id
-           WHERE c.org_id=%s AND ({q})
+           WHERE c.org_id=%s AND (c.chunk_level IS NULL OR c.chunk_level='leaf') AND ({q})
            LIMIT 20;""", (org_id, *params))
     rows = cur.fetchall(); cur.close(); conn.close()
     # mark keyword hits
-    return [{"chunk_id": r[0], "content": r[1], "doc_id": r[2], "title": r[3], "dept": r[4], "class": r[5], "distance": None, "keyword_hit": True} for r in rows]
+    return [{"chunk_id": r[0], "content": r[1], "doc_id": r[2], "title": r[3], "dept": r[4], "class": r[5], "distance": None, "keyword_hit": True, "parent_id": r[6]} for r in rows]
 
 def _rrf(lists, k=60):
     # lists: list of ranked id->item lists; fused by reciprocal rank
@@ -131,35 +132,61 @@ def hybrid_search(query, user_dept="operations", limit=5, org_id="default", quer
     if not out:
         kws=search_docs(query, user_dept, limit, org_id)
         return [{"content":k.get("content",""), "doc_id":k["id"], "title":k["title"], "dept":k["dept"], "class":k["class"], "distance":None, "keyword_hit":True, "chunk_id":k["id"]} for k in kws]
-    return out
+    return stitch_parents(out)
+
+
+def stitch_parents(items):
+    """Attach parent_content to leaf hits in one query. Parentless leaves pass through untouched."""
+    pids = list({it["parent_id"] for it in items if it.get("parent_id")})
+    if not pids:
+        return items
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("SELECT id, content FROM chunks WHERE id = ANY(%s);", (pids,))
+    pmap = {r[0]: r[1] for r in cur.fetchall()}
+    cur.close(); conn.close()
+    for it in items:
+        if it.get("parent_id") and it["parent_id"] in pmap:
+            it["parent_content"] = pmap[it["parent_id"]]
+    return items
 
 def vector_search(query, user_dept="operations", limit=5, org_id="default"):
     return hybrid_search(query, user_dept, limit, org_id, queries=[query])
 
 
 def ingest_doc(title, content, org_id="default", dept="operations", doc_class="open"):
-    """Transactional chunk-first: doc + null chunks in one tx, then backfill vectors."""
+    """Transactional hierarchical ingest: doc + parents + children in one tx, vectors on leaves only."""
     from data.db import get_conn
+    from data.chunking import chunk_hierarchical
     _ensure_org(org_id)
-    chunks = chunk_text(content)
+    pairs = chunk_hierarchical(content)
     conn = get_conn(); cur = conn.cursor()
-    # 1) doc + chunks NULL in one transaction — never a doc with 0 chunks
+    # 1) doc + parents + null children in one transaction — child always has a parent row
     cur.execute("INSERT INTO documents (title, dept, class, content, org_id) VALUES (%s,%s,%s,%s,%s) RETURNING id;",
                 (title, dept, doc_class, content, org_id))
     doc_id = cur.fetchone()[0]
-    for i, ch in enumerate(chunks):
-        cur.execute("INSERT INTO chunks (org_id, doc_id, chunk_index, content, embedding) VALUES (%s,%s,%s,%s,NULL);",
-                    (org_id, doc_id, i, ch))
+    child_idx, child_texts = [], []
+    idx = 0
+    for ptext, children in pairs:
+        cur.execute("INSERT INTO chunks (org_id, doc_id, chunk_index, content, embedding, parent_id, chunk_level) VALUES (%s,%s,%s,%s,NULL,NULL,'parent') RETURNING id;",
+                    (org_id, doc_id, idx, ptext))
+        pid = cur.fetchone()[0]
+        idx += 1
+        for ch in children:
+            cur.execute("INSERT INTO chunks (org_id, doc_id, chunk_index, content, embedding, parent_id, chunk_level) VALUES (%s,%s,%s,%s,NULL,%s,'leaf');",
+                        (org_id, doc_id, idx, ch, pid))
+            child_idx.append(idx)
+            child_texts.append(ch)
+            idx += 1
     conn.commit()
-    if not chunks:
+    if not child_texts:
         cur.close(); conn.close()
         return doc_id
-    # 2) backfill vectors when model ready (fast-fail keeps NULLs)
+    # 2) embed leaves only — parents are context carriers, never retrieval keys
     try:
         from data.embeddings import embed_texts
-        vecs = embed_texts(chunks)
-        for i, vec in enumerate(vecs):
-            cur.execute("UPDATE chunks SET embedding=%s::vector WHERE doc_id=%s AND chunk_index=%s;", (vec, doc_id, i))
+        vecs = embed_texts(child_texts)
+        for ci, vec in zip(child_idx, vecs):
+            cur.execute("UPDATE chunks SET embedding=%s::vector WHERE doc_id=%s AND chunk_index=%s;", (vec, doc_id, ci))
         conn.commit()
     except Exception:
         pass  # NULLs remain, vector_search will use keyword leg
@@ -168,10 +195,10 @@ def ingest_doc(title, content, org_id="default", dept="operations", doc_class="o
 
 
 def backfill_embeddings(limit=32):
-    """Fill NULL embeddings for docs ingested before model was ready. Call after warmup."""
+    """Fill NULL embeddings on leaves only (parents stay vectorless by design). Call after warmup."""
     from data.embeddings import embed_texts
     conn = get_conn(); cur = conn.cursor()
-    cur.execute("SELECT id, content FROM chunks WHERE embedding IS NULL LIMIT %s;", (limit,))
+    cur.execute("SELECT id, content FROM chunks WHERE embedding IS NULL AND (chunk_level IS NULL OR chunk_level='leaf') LIMIT %s;", (limit,))
     rows = cur.fetchall()
     if not rows: cur.close(); conn.close(); return 0
     ids, texts = zip(*[(r[0], r[1]) for r in rows])

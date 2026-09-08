@@ -1,7 +1,7 @@
 """Chat routes — threads + history."""
 from flask import Blueprint, g, jsonify, request, session
 from auth.service import is_member
-from chat.service import create_conversation, list_conversations, get_messages, add_message
+from chat.service import create_conversation, list_conversations, get_messages, add_message, rename_conversation
 
 chat_bp = Blueprint("chat", __name__)
 
@@ -34,6 +34,18 @@ def list_all():
     ok, res, uid = _check_org()
     if not ok: return res
     return jsonify({"conversations": list_conversations(res, uid)})
+
+
+@chat_bp.patch("/conversations/<int:cid>")
+def rename(cid):
+    ok, res, uid = _check_org()
+    if not ok: return res
+    title = ((request.get_json(force=True, silent=True) or {}).get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    if not rename_conversation(cid, res, uid, title):
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"ok": True})
 
 
 @chat_bp.get("/conversations/<int:cid>/messages")

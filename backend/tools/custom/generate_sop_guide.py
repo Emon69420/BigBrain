@@ -1,0 +1,40 @@
+"""SOP Guide generator - returns a standard operating procedure template
+Args:
+Returns: sop_guide (str)
+"""
+
+def main():
+    """Generate a generic Standard Operating Procedure (SOP) guide."""
+    return (
+        "Standard Operating Procedure (SOP) Guide\n"
+        "=========================================\n\n"
+        "1. Purpose\n"
+        "   Describe the objective of the procedure and its scope.\n\n"
+        "2. Scope\n"
+        "   Identify the departments, roles, and processes this SOP applies to.\n\n"
+        "3. Responsibilities\n"
+        "   List all personnel involved and their specific responsibilities.\n\n"
+        "4. Definitions\n"
+        "   Provide clear definitions for any specialized terms or abbreviations used.\n\n"
+        "5. Procedure Steps\n"
+        "   5.1. Preparation\n"
+        "       - Gather required materials and equipment.\n"
+        "       - Verify that all safety measures are in place.\n"
+        "   5.2. Execution\n"
+        "       - Step-by-step instructions to complete the task.\n"
+        "       - Include decision points, required checks, and documentation.\n"
+        "   5.3. Completion\n"
+        "       - Verify outcomes against expected results.\n"
+        "       - Record any deviations and corrective actions.\n\n"
+        "6. Safety and Compliance\n"
+        "   - Outline relevant safety guidelines, PPE requirements, and regulatory compliance.\n\n"
+        "7. Documentation and Records\n"
+        "   - Detail forms, logs, or digital records to be completed.\n"
+        "   - Specify retention periods and storage locations.\n\n"
+        "8. Training\n"
+        "   - Identify training requirements for personnel performing the SOP.\n\n"
+        "9. Revision History\n"
+        "   - Document version number, date of revision, author, and summary of changes.\n\n"
+        "10. Appendices\n"
+        "    - Include any supplementary materials such as diagrams, checklists, or reference documents.\n"
+    )

@@ -11,21 +11,74 @@ import { KBView } from "./views/KB.jsx";
 import { ToolsView } from "./views/Tools.jsx";
 import { FileUpload, TextIngest } from "./components/FileUpload.jsx";
 import { useIngest } from "./hooks/useIngest.js";
+import BrainMark from "./components/BrainMark.jsx";
 
-function Sidebar({ view, setView, user, onLogout, orgId }){
+const RAIL_ICONS = {
+  chat: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>,
+  kb: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7l7 1M7 8.5L11 16M16.5 10L13.5 16"/></svg>,
+  tools: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4L14 13l-3-3 3.7-3.7z"/></svg>,
+  ingest: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg>,
+  security: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>,
+  audit: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>,
+};
+
+function IconRail({ view, setView }){
   const items=[
     ["chat","Chat"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],
   ];
+  const soon=[["security","Security (soon)"],["audit","Audit (soon)"]];
+  return (
+    <div className="icon-rail" role="navigation" aria-label="Primary">
+      <div className="rail-mark" title="BigBrain"><BrainMark size={22}/></div>
+      {items.map(([k,label])=> (
+        <div key={k} className={`rail-icon ${view===k?"active":""}`} title={label} aria-label={label} role="button" tabIndex={0}
+          onClick={()=>setView(k)} onKeyDown={e=>{ if(e.key==="Enter") setView(k); }}>{RAIL_ICONS[k]}</div>
+      ))}
+      {soon.map(([k,label])=> (
+        <div key={k} className="rail-icon soon" title={label} aria-disabled="true">{RAIL_ICONS[k]}</div>
+      ))}
+    </div>
+  );
+}
+
+function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout }){
+  const [editing,setEditing]=useState(null);
+  const [draft,setDraft]=useState("");
+  function startRename(t){ setEditing(t.id); setDraft(t.title); }
+  async function commitRename(id){
+    const title=draft.trim();
+    setEditing(null);
+    if(title) await onRename(id,title);
+  }
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand"><span className="brand-mark">BB</span> BigBrain <span className="badge" style={{marginLeft:"auto"}}>{orgId}</span></div>
-      <nav className="sidebar-nav">
-        {items.map(([k,label])=> <div key={k} className={`nav-item ${view===k?"active":""}`} onClick={()=>setView(k)}>{label}</div>)}
+      <div className="sidebar-brand"><span className="brand-mark"><BrainMark size={18}/></span> BigBrain</div>
+      <div style={{padding:"10px 12px 0"}}>
+        <button className="btn" style={{width:"100%"}} onClick={onNew}>+ New chat</button>
+      </div>
+      <nav className="sidebar-nav threads-nav">
+        {threads.map(t=>(
+          <div key={t.id} className={`nav-item thread-item ${cid===t.id?"active":""}`}>
+            {editing===t.id ? (
+              <input className="input" style={{padding:"4px 8px", fontSize:13}} value={draft} autoFocus
+                onChange={e=>setDraft(e.target.value)}
+                onBlur={()=>commitRename(t.id)}
+                onKeyDown={e=>{ if(e.key==="Enter") commitRename(t.id); if(e.key==="Escape") setEditing(null); }}
+                onClick={e=>e.stopPropagation()}/>
+            ) : (
+              <>
+                <span className="thread-title" onClick={()=>onSelect(t.id)} title={t.title}>{t.title}</span>
+                <span className="thread-rename" title="Rename" onClick={()=>startRename(t)}>✎</span>
+              </>
+            )}
+          </div>
+        ))}
+        {!threads.length && <div className="small muted" style={{padding:"4px 10px"}}>No chats yet.</div>}
       </nav>
       <div className="nav-foot">
         <div style={{fontWeight:700, color:"var(--ink)"}}>{user?.name || user?.email || "—"}</div>
         <div style={{fontSize:12}}>{user?.email || ""}</div>
-        <button className="btn btn-ghost" style={{marginTop:8, width:"100%"}} onClick={onLogout}>Sign out</button>
+        <button className="btn btn-ghost" style={{marginTop:8, paddingLeft:0}} onClick={onLogout}>Sign out</button>
       </div>
     </aside>
   );
@@ -84,29 +137,43 @@ function AppShell({ user, orgs, onLogout }){
     setHighlight(msg?.evidence?.[idx]?.doc_id ?? null);
   }
 
+  const lastAssistant=[...messages].reverse().find(m=>m.role==="assistant");
+  const groundedState = !lastAssistant ? null
+    : (lastAssistant.tool_used && lastAssistant.tool_used.error) ? "failed"
+    : (lastAssistant.tool_used && lastAssistant.tool_used.result) ? "verified"
+    : (lastAssistant.general_knowledge || (lastAssistant.evidence||[]).length===0) ? "unverified" : "grounded";
+  async function handleRename(id,title){
+    await api.renameConversation(id,title);
+    loadThreads();
+  }
+  async function handleNew(){
+    const r=await api.createConversation("New chat");
+    setCid(r.id); setMessages([]); loadThreads();
+  }
   return (
     <div className="shell">
-      <Sidebar view={view} setView={setView} user={user} onLogout={onLogout} orgId={orgId}/>
-      <div>
+      <IconRail view={view} setView={setView}/>
+      {view==="chat" && (
+        <ChatsPanel threads={threads} cid={cid} onSelect={(id)=>{ setCid(id); }} onNew={handleNew} onRename={handleRename} user={user} onLogout={onLogout}/>
+      )}
+      <div className="main-col">
         <div className="topbar">
           <div style={{display:"flex", gap:8, alignItems:"center"}}>
             <span className="eyebrow">Workspace</span>
-            <select className="input" style={{width:"auto", padding:"6px 10px"}} value={orgId} onChange={e=>pickOrg(e.target.value)}>
-              {orgs.map(o=> <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
+            <select className="org-select" value={orgId} onChange={e=>pickOrg(e.target.value)} aria-label="Workspace">
+              {orgs.map(o=> <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
-          <span className="badge"><span className="badge-dot"/> grounded RAG</span>
+          {groundedState==="grounded" && <span className="badge"><span className="badge-dot low"/>grounded</span>}
+          {groundedState==="verified" && <span className="badge"><span className="badge-dot low"/>verified</span>}
+          {groundedState==="unverified" && <span className="badge"><span className="badge-dot" style={{background:"var(--st-unverified)"}}/>unverified</span>}
+          {groundedState==="failed" && <span className="badge"><span className="badge-dot critical"/>failed</span>}
+          {groundedState===null && <span className="badge"><span className="badge-dot"/>idle</span>}
         </div>
         <div className="content">
           {view==="chat" && (
             <>
-              <div style={{display:"flex", gap:8, marginBottom:12}}>
-                <button className="btn" onClick={async()=>{ const r=await api.createConversation("New chat"); setCid(r.id); setMessages([]); loadThreads(); }}>+ New chat</button>
-                <select className="input" style={{width:"auto"}} value={cid||""} onChange={e=>{ setCid(Number(e.target.value)); }}>
-                  <option value="">Select thread…</option>
-                  {threads.map(t=> <option key={t.id} value={t.id}>{t.title} #{t.id}</option>)}
-                </select>
-              </div>
+              {!cid && <div className="card" style={{marginBottom:12}}>Pick a chat from the panel, or start a <button className="btn" style={{padding:"2px 10px"}} onClick={handleNew}>+ New chat</button></div>}
               <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase}/>
               <EvidencePanel open={!!evMsg} onClose={()=>{setEvMsg(null); setHighlight(null);}} msg={evMsg} highlightDoc={highlight}/>
             </>

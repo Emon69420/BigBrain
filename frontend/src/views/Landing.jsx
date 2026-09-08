@@ -1,26 +1,47 @@
-// Landing — marketing, decides to enter app. Not AI slop: tight typography, real info.
+// Landing per design.md §6 — sovereignty pitch, vortex hero, 3-col grid, deployment, proof.
+import VortexBackground from "../components/VortexBackground.jsx";
+import HairlineButton from "../components/HairlineButton.jsx";
+import BrainMark from "../components/BrainMark.jsx";
+
 export function Landing({ onEnter }){
   return (
-    <div style={{maxWidth:1100, margin:"0 auto", padding:24}}>
-      <div className="hero">
-        <div className="eyebrow">Sovereign Industrial AI Workbench</div>
-        <h1>Your plant's memory.<br/>Private, grounded, auditable.</h1>
-        <p>BigBrain lives on your hardware. It reads SOPs, P&amp;IDs, handwriting, does calculations in a sandbox, cites every answer, and proves no data left your network.</p>
-        <div style={{display:"flex", gap:10, marginTop:14}}>
-          <button className="btn btn-primary" onClick={onEnter}>Enter workbench →</button>
-          <span className="badge"><span className="badge-dot"/> Groq harness + local pgvector</span>
+    <div>
+      <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"18px 28px", borderBottom:"1px solid var(--line)"}}>
+        <div style={{display:"flex", alignItems:"center", gap:10}}><span className="brand-mark"><BrainMark size={18}/></span><strong>BigBrain</strong></div>
+        <div style={{display:"flex", gap:22, color:"var(--muted)", fontSize:14}}>
+          <span>Product</span><span>Security</span><span>Docs</span>
+          <a onClick={onEnter} style={{cursor:"pointer", color:"var(--ink)"}}>Login</a>
         </div>
       </div>
-      <div className="grid grid-3" style={{marginTop:16}}>
-        <div className="card"><div className="eyebrow">Grounded RAG</div><div className="kpi">Cited</div><p style={{color:"var(--muted)"}}>Every claim has [doc:ID]. No doc → "Not found in your docs." No hallucinations.</p></div>
-        <div className="card"><div className="eyebrow">Org-divided</div><div className="kpi">Isolated</div><p style={{color:"var(--muted)"}}>One server, many orgs. Sister companies share hardware, not data.</p></div>
-        <div className="card"><div className="eyebrow">Auditable</div><div className="kpi">Logged</div><p style={{color:"var(--muted)"}}>Every LLM call stored: prompt, response, tokens, latency, org.</p></div>
+      <div style={{position:"relative", textAlign:"center", padding:"90px 24px 70px", overflow:"hidden"}}>
+        <VortexBackground opacity={0.3}/>
+        <div style={{position:"relative"}}>
+          <h1 style={{fontSize:44, lineHeight:1.15, margin:"0 0 12px"}}>A sovereign AI workbench for<br/>confidential industrial work.</h1>
+          <p style={{color:"var(--muted)", fontSize:17}}>Local models. Your GPU. Nothing leaves.</p>
+          <div style={{marginTop:26}}><HairlineButton onClick={onEnter}>Request a briefing →</HairlineButton></div>
+        </div>
       </div>
-      <div className="card" style={{marginTop:14, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-        <div><strong>Perplexity-grade</strong> <span style={{color:"var(--muted)"}}>— grounded citations · phase pill · sources panel · org-isolated</span></div>
-        <span className="badge">v0 · perplexity</span>
+      <div className="grid grid-3" style={{maxWidth:1000, margin:"0 auto", padding:"0 24px"}}>
+        <div><div className="eyebrow">Right model, right job</div><p className="muted" style={{fontSize:14}}>SLM / LLM / VLM routed per task — fast where possible, strong where it matters.</p></div>
+        <div><div className="eyebrow">Grounded in your docs</div><p className="muted" style={{fontSize:14}}>Local RAG with cited document IDs. No doc, no claim.</p></div>
+        <div><div className="eyebrow">Human stays in control</div><p className="muted" style={{fontSize:14}}>Red Team review plus an approval gate on high-risk output.</p></div>
       </div>
-      <p style={{marginTop:10, fontSize:12, color:"var(--muted-2)"}}>Try: “whats sop” · “What is inspection interval for P-204?” · then click ⓘ to inspect evidence.</p>
+      <div style={{maxWidth:1000, margin:"40px auto 0", padding:"0 24px"}}>
+        <h2>Deployment</h2>
+        <div className="grid grid-2">
+          <div className="card"><strong>Org GPU server</strong><p className="muted small">Air-gapped workstation or rack. Data never traverses the internet.</p></div>
+          <div className="card"><strong>Approved IndiaAI cloud</strong><p className="muted small">For orgs cleared to run on national infrastructure.</p></div>
+        </div>
+      </div>
+      <div style={{textAlign:"center", padding:"56px 24px"}}>
+        <h2>Prove it to your security team</h2>
+        <p className="muted">0 external requests. Live, on your network.</p>
+        <div style={{marginTop:18}}><HairlineButton onClick={onEnter}>Request a briefing →</HairlineButton></div>
+      </div>
+      <div style={{display:"flex", justifyContent:"space-between", padding:"18px 28px", borderTop:"1px solid var(--line)", color:"var(--muted)", fontSize:13}}>
+        <span>Product&nbsp;&nbsp;Security</span>
+        <span>BigBrain Lab — org-controlled deployment only</span>
+      </div>
     </div>
   );
 }
