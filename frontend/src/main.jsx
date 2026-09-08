@@ -21,29 +21,65 @@ const RAIL_ICONS = {
   audit: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>,
 };
 
-function Sidebar({ view, setView, user, onLogout }){
+function IconRail({ view, setView }){
   const items=[
     ["chat","Chat"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],
   ];
-  const soon=[["security","Security"],["audit","Audit"]];
+  const soon=[["security","Security (soon)"],["audit","Audit (soon)"]];
   return (
-    <>
-      <div className="icon-rail" aria-hidden="true">
-        {items.map(([k])=> <div key={k} className={`rail-icon ${view===k?"active":""}`}>{RAIL_ICONS[k]}</div>)}
+    <div className="icon-rail" role="navigation" aria-label="Primary">
+      <div className="rail-mark" title="BigBrain">BB</div>
+      {items.map(([k,label])=> (
+        <div key={k} className={`rail-icon ${view===k?"active":""}`} title={label} aria-label={label} role="button" tabIndex={0}
+          onClick={()=>setView(k)} onKeyDown={e=>{ if(e.key==="Enter") setView(k); }}>{RAIL_ICONS[k]}</div>
+      ))}
+      {soon.map(([k,label])=> (
+        <div key={k} className="rail-icon soon" title={label} aria-disabled="true">{RAIL_ICONS[k]}</div>
+      ))}
+    </div>
+  );
+}
+
+function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout }){
+  const [editing,setEditing]=useState(null);
+  const [draft,setDraft]=useState("");
+  function startRename(t){ setEditing(t.id); setDraft(t.title); }
+  async function commitRename(id){
+    const title=draft.trim();
+    setEditing(null);
+    if(title) await onRename(id,title);
+  }
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-brand"><span className="brand-mark">BB</span> BigBrain</div>
+      <div style={{padding:"10px 12px 0"}}>
+        <button className="btn" style={{width:"100%"}} onClick={onNew}>+ New chat</button>
       </div>
-      <aside className="sidebar">
-        <div className="sidebar-brand"><span className="brand-mark">BB</span> BigBrain</div>
-        <nav className="sidebar-nav">
-          {items.map(([k,label])=> <div key={k} className={`nav-item ${view===k?"active":""}`} onClick={()=>setView(k)}>{label}</div>)}
-          {soon.map(([k,label])=> <div key={k} className="nav-item soon" title="Not built yet — lands with the safety layer">{label}<span className="soon-tag">soon</span></div>)}
-        </nav>
-        <div className="nav-foot">
-          <div style={{fontWeight:700, color:"var(--ink)"}}>{user?.name || user?.email || "—"}</div>
-          <div style={{fontSize:12}}>{user?.email || ""}</div>
-          <button className="btn btn-ghost" style={{marginTop:8, paddingLeft:0}} onClick={onLogout}>Sign out</button>
-        </div>
-      </aside>
-    </>
+      <nav className="sidebar-nav threads-nav">
+        {threads.map(t=>(
+          <div key={t.id} className={`nav-item thread-item ${cid===t.id?"active":""}`}>
+            {editing===t.id ? (
+              <input className="input" style={{padding:"4px 8px", fontSize:13}} value={draft} autoFocus
+                onChange={e=>setDraft(e.target.value)}
+                onBlur={()=>commitRename(t.id)}
+                onKeyDown={e=>{ if(e.key==="Enter") commitRename(t.id); if(e.key==="Escape") setEditing(null); }}
+                onClick={e=>e.stopPropagation()}/>
+            ) : (
+              <>
+                <span className="thread-title" onClick={()=>onSelect(t.id)} title={t.title}>{t.title}</span>
+                <span className="thread-rename" title="Rename" onClick={()=>startRename(t)}>✎</span>
+              </>
+            )}
+          </div>
+        ))}
+        {!threads.length && <div className="small muted" style={{padding:"4px 10px"}}>No chats yet.</div>}
+      </nav>
+      <div className="nav-foot">
+        <div style={{fontWeight:700, color:"var(--ink)"}}>{user?.name || user?.email || "—"}</div>
+        <div style={{fontSize:12}}>{user?.email || ""}</div>
+        <button className="btn btn-ghost" style={{marginTop:8, paddingLeft:0}} onClick={onLogout}>Sign out</button>
+      </div>
+    </aside>
   );
 }
 
@@ -105,18 +141,27 @@ function AppShell({ user, orgs, onLogout }){
     : (lastAssistant.tool_used && lastAssistant.tool_used.error) ? "failed"
     : (lastAssistant.tool_used && lastAssistant.tool_used.result) ? "verified"
     : (lastAssistant.general_knowledge || (lastAssistant.evidence||[]).length===0) ? "unverified" : "grounded";
+  async function handleRename(id,title){
+    await api.renameConversation(id,title);
+    loadThreads();
+  }
+  async function handleNew(){
+    const r=await api.createConversation("New chat");
+    setCid(r.id); setMessages([]); loadThreads();
+  }
   return (
     <div className="shell">
-      <Sidebar view={view} setView={setView} user={user} onLogout={onLogout}/>
-      <div>
+      <IconRail view={view} setView={setView}/>
+      {view==="chat" && (
+        <ChatsPanel threads={threads} cid={cid} onSelect={(id)=>{ setCid(id); }} onNew={handleNew} onRename={handleRename} user={user} onLogout={onLogout}/>
+      )}
+      <div className="main-col">
         <div className="topbar">
           <div style={{display:"flex", gap:8, alignItems:"center"}}>
-            <span className="brand-mark" style={{width:24,height:24,fontSize:11}}>BB</span>
-            <strong>BigBrain</strong>
-            <select className="input" style={{width:"auto", padding:"6px 10px"}} value={orgId} onChange={e=>pickOrg(e.target.value)} aria-label="Workspace">
-              {orgs.map(o=> <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
-            </select>
             <span className="eyebrow">Workspace</span>
+            <select className="org-select" value={orgId} onChange={e=>pickOrg(e.target.value)} aria-label="Workspace">
+              {orgs.map(o=> <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
           </div>
           {groundedState==="grounded" && <span className="badge"><span className="badge-dot low"/>grounded</span>}
           {groundedState==="verified" && <span className="badge"><span className="badge-dot low"/>verified</span>}
@@ -127,13 +172,7 @@ function AppShell({ user, orgs, onLogout }){
         <div className="content">
           {view==="chat" && (
             <>
-              <div style={{display:"flex", gap:8, marginBottom:12}}>
-                <button className="btn" onClick={async()=>{ const r=await api.createConversation("New chat"); setCid(r.id); setMessages([]); loadThreads(); }}>+ New chat</button>
-                <select className="input" style={{width:"auto"}} value={cid||""} onChange={e=>{ setCid(Number(e.target.value)); }}>
-                  <option value="">Select thread…</option>
-                  {threads.map(t=> <option key={t.id} value={t.id}>{t.title} #{t.id}</option>)}
-                </select>
-              </div>
+              {!cid && <div className="card" style={{marginBottom:12}}>Pick a chat from the panel, or start a <button className="btn" style={{padding:"2px 10px"}} onClick={handleNew}>+ New chat</button></div>}
               <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase}/>
               <EvidencePanel open={!!evMsg} onClose={()=>{setEvMsg(null); setHighlight(null);}} msg={evMsg} highlightDoc={highlight}/>
             </>

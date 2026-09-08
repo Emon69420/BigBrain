@@ -29,12 +29,25 @@ h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.01em}
 .input:focus,.textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring)}
 select.input{width:auto}
 /* shell: icon rail + text nav + workspace */
-.shell{display:grid;grid-template-columns:56px 240px 1fr;min-height:100vh}
+.shell{display:grid;grid-template-columns:56px auto 1fr;height:100vh;overflow:hidden}
+.main-col{display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden}
+.main-col .content{flex:1;overflow-y:auto;min-height:0}
+.icon-rail .rail-mark{width:32px;height:32px;border-radius:8px;background:radial-gradient(circle at 35% 35%, var(--vortex-a), var(--vortex-b));display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;margin-bottom:8px}
+.rail-icon.soon{opacity:.35;cursor:default}
+.threads-nav{overflow-y:auto;min-height:0}
+.thread-item{gap:6px}
+.thread-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;min-width:0}
+.thread-rename{opacity:0;cursor:pointer;font-size:12px;color:var(--muted);flex:none}
+.thread-item:hover .thread-rename{opacity:1}
+.org-select{background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px;color:var(--ink);cursor:pointer;max-width:220px}
+.org-select:focus{outline:none;border-color:var(--accent)}
+.org-select option{background:var(--panel);color:var(--ink)}
 .icon-rail{background:var(--bg);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
 .rail-icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--muted);cursor:pointer;border:1px solid transparent}
 .rail-icon svg{width:18px;height:18px}
 .rail-icon.active{color:var(--ink);background:var(--panel);border-color:var(--line)}
-.sidebar{background:var(--bg);border-right:1px solid var(--line);display:flex;flex-direction:column}
+.sidebar{background:var(--bg);border-right:1px solid var(--line);display:flex;flex-direction:column;height:100vh;overflow:hidden;width:240px}
+.sidebar-nav{min-height:0}
 .sidebar-brand{padding:18px 14px;border-bottom:1px solid var(--line);font-weight:800;display:flex;align-items:center;gap:10px}
 .brand-mark{width:28px;height:28px;border-radius:8px;background:radial-gradient(circle at 35% 35%, var(--vortex-a), var(--vortex-b));display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff}
 .sidebar-nav{padding:10px;display:grid;gap:6px}

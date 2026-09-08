@@ -3,7 +3,7 @@
 // Edges = shared equipment tags, thickness by count. Hover dims rest, click opens drawer.
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { forceSimulation, forceManyBody, forceCenter, forceLink, forceCollide } from "d3-force";
+import { forceSimulation, forceManyBody, forceCenter, forceLink, forceCollide, forceX, forceY } from "d3-force";
 
 const DEPT_COLORS = {
   operations: "#7d8aa5",
@@ -32,11 +32,23 @@ export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSele
 
   useEffect(() => {
     if (!simNodes.length) return;
+    // deterministic circle start so first paint isn't chaos
+    simNodes.forEach((n, i) => {
+      if (n.x == null || n.y == null) {
+        const a = (2 * Math.PI * i) / Math.max(1, simNodes.length);
+        n.x = size.w / 2 + Math.cos(a) * Math.min(size.w, size.h) * 0.28;
+        n.y = size.h / 2 + Math.sin(a) * Math.min(size.w, size.h) * 0.28;
+      }
+    });
     const sim = forceSimulation(simNodes)
-      .force("charge", forceManyBody().strength(-260))
+      .velocityDecay(0.35)
+      .alphaMin(0.05)
+      .force("charge", forceManyBody().strength(-90))
       .force("center", forceCenter(size.w / 2, size.h / 2))
-      .force("collide", forceCollide().radius((d) => d.r + 26))
-      .force("link", forceLink(simLinks).id((d) => d.id).distance(130).strength(0.4));
+      .force("gx", forceX(size.w / 2).strength(0.08))
+      .force("gy", forceY(size.h / 2).strength(0.08))
+      .force("collide", forceCollide().radius((d) => d.r + 18))
+      .force("link", forceLink(simLinks).id((d) => d.id).distance(90).strength(0.5));
     // respect pinned positions
     simNodes.forEach((n) => {
       if (pinned[n.id]) { n.fx = pinned[n.id].x; n.fy = pinned[n.id].y; }
@@ -47,7 +59,7 @@ export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSele
       simNodes.forEach((n) => { p[n.id] = { x: n.x, y: n.y }; });
       setPos({ ...p });
     });
-    const stop = setTimeout(() => sim.stop(), 4000);
+    const stop = setTimeout(() => sim.stop(), 1800);
     return () => { clearTimeout(stop); sim.stop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simNodes, simLinks, size.w, size.h]);

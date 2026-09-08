@@ -1,6 +1,6 @@
 // Chat per design.md §7: hairline turns, orb model badge, Task List Card,
 // Reasoning disclosure (collapsed), Evidence drawer, hairline input bar.
-import { SearchBox, SourcesPanel, PhaseIndicator } from "../components/SearchPerplexity.jsx";
+import { SearchBox, PhaseIndicator } from "../components/SearchPerplexity.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
 
 function renderWithCites(text, onCite){
@@ -92,7 +92,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
   const lastUser=[...messages].reverse().find(m=>m.role==="user");
   const showCard = phase || lastAssistant;
   return (
-    <div className="two-col">
+    <div className="center-col">
       <div>
         {phase && <div style={{marginBottom:10}}><PhaseIndicator phase={phase}/></div>}
         {showCard && <TaskListCard msg={phase?null:lastAssistant} phase={phase} query={lastUser?.content}/>}
@@ -123,13 +123,10 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
         <div style={{maxWidth:640, marginTop:18}}>
           <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:6}}>
             <span className="badge"><span className="badge-dot"/>auto</span>
-            <span className="small muted">model routed per message</span>
+            <span className="small muted">model routed per message · sources open via ⓘ on any answer</span>
           </div>
           <SearchBox onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…"/>
         </div>
-      </div>
-      <div className="sources-panel">
-        {phase ? <div className="card small muted" style={{display:"grid", gap:8}}><PhaseIndicator phase={phase}/><span>{phase==="building"?"Creating tool in sandbox…":phase==="running"?"Executing tool…":"Collecting evidence…"}</span></div> : <SourcesPanel evidence={ev}/>}
       </div>
     </div>
   );

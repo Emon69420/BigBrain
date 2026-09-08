@@ -10,6 +10,14 @@ def create_conversation(org_id, user_id, title="New chat"):
     return cid
 
 
+def rename_conversation(conversation_id, org_id, user_id, title):
+    conn = get_conn(); cur = conn.cursor()
+    cur.execute("UPDATE conversations SET title=%s WHERE id=%s AND org_id=%s AND user_id=%s RETURNING id;",
+                (title.strip()[:80], conversation_id, org_id, user_id))
+    row = cur.fetchone(); conn.commit(); cur.close(); conn.close()
+    return bool(row)
+
+
 def list_conversations(org_id, user_id):
     conn = get_conn(); cur = conn.cursor()
     cur.execute("SELECT id, title, created_at FROM conversations WHERE org_id=%s AND user_id=%s ORDER BY created_at DESC;", (org_id, user_id))

@@ -37,5 +37,9 @@ export async function me(){ return get("/auth/me"); }
 // chat threads
 export async function listConversations(){ return get("/conversations"); }
 export async function createConversation(title="New chat"){ return post("/conversations",{title}); }
+export async function renameConversation(cid,title){
+  const r=await fetch(`${BASE}/conversations/${cid}`,{method:"PATCH",headers:headers(),body:JSON.stringify({title}),...withCreds()});
+  const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||`Rename failed`); return d;
+}
 export async function getMessages(cid){ return get(`/conversations/${cid}/messages`); }
 export async function postMessage(cid, msg){ return post(`/conversations/${cid}/messages`,msg); }
