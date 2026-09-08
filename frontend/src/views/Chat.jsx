@@ -92,7 +92,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
   const lastUser=[...messages].reverse().find(m=>m.role==="user");
   const showCard = phase || lastAssistant;
   return (
-    <div className="center-col">
+    <div className="center-col" style={{zoom:1.25}}>
       <div>
         {phase && <div style={{marginBottom:10}}><PhaseIndicator phase={phase}/></div>}
         {showCard && <TaskListCard msg={phase?null:lastAssistant} phase={phase} query={lastUser?.content}/>}
