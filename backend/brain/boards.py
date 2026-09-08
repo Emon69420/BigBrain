@@ -1,85 +1,99 @@
-"""Dashboard-Maker builder intents — deterministic pre-check for ask_question.
+"""Dashboard-Maker builder intents — pre-check for ask_question.
 
-Handles the conversational loop: propose (create draft) -> iterate
-(add/remove/rename on the draft) -> finalize (draft -> live). Template
-replies only: no factual claims, no LLM call. Returns None when the text
-is not a builder turn so the normal pipeline continues.
+Split design (mechanic-proof): an SLM extracts builder intent from free-form
+text into strict JSON; deterministic code validates + writes. The LLM
+understands, code enforces. Low-confidence turns get a clarifying question,
+never a junk draft. Template replies only: no factual claims.
+Returns None when the text is not a builder turn.
 """
+import json
 import re
 
 BOARD_WORD = r"(?:dashboard|board)"
 
-KNOWN_UNITS = {
-    "bar", "psi", "kpa", "mpa", "pa", "kl", "l", "ml", "litre", "litres",
-    "liter", "liters", "gallon", "gallons", "kg", "g", "tonne", "tonnes",
-    "ton", "tons", "t", "%", "percent", "ppm", "c", "f", "mm", "cm", "m",
-    "km", "rpm", "hz", "v", "a", "kw", "kwh", "m3",
-}
-
-TEXT_HINT = re.compile(r"status|remark|note|name|shift|operator|incharge|vendor", re.I)
 ZONE_RE = re.compile(r"\bzone\s+[a-z0-9]+\b", re.I)
 
+EXTRACT_SYSTEM = """You extract dashboard-builder intent for BigBrain. Respond STRICT JSON only, no other text.
 
-def _strip_unit(phrase):
-    """Split 'pipe pressure in bar' -> ('pipe pressure', 'bar')."""
-    m = re.search(r"(?:\bin\s+|\()\s*([a-zA-Z%°]+)\s*\)?\s*$", phrase)
-    if m and m.group(1).lower() in KNOWN_UNITS:
-        return phrase[:m.start()].strip(" ()"), m.group(1)
-    return phrase.strip(" ()"), ""
+Actions: propose (new board), add (metrics to a draft), remove (metrics from a draft), rename (a draft), finalize (draft goes live), none (not about building dashboards).
 
+Context lists the org's draft and live boards. Resolve "it / this / the dashboard" against them.
 
-def extract_metrics(text):
-    """Pull candidate metric phrases after with/tracking/for/including."""
-    m = re.search(
-        r"(?:with|tracking|tracks?|for|including|metrics?\s*:|to\s+track)\s+(.+)$",
-        text, re.I | re.S)
-    if not m:
-        return []
-    chunk = m.group(1).strip().rstrip(".")
-    parts = re.split(r"\s*(?:,|;|\band\b|\+|&|\bplus\b)\s*", chunk)
-    out = []
-    for p in parts:
-        p = re.sub(r"^(?:the|a|an)\s+", "", p.strip(), flags=re.I)
-        if not p or len(p) > 60:
-            continue
-        label, unit = _strip_unit(p)
-        if not label:
-            continue
-        label = label[0].upper() + label[1:]
-        kind = "text" if TEXT_HINT.search(label) else "number"
-        out.append({"label": label, "unit": unit, "kind": kind})
-    return out
+Rules:
+- Extract ONLY what the user stated. Never invent metrics, names, units, or zones.
+- metrics: [{"label": "...", "unit": "bar, kL, ... or empty", "kind": "number or text"}]. kind=text for status/notes/names/shifts/people/amounts-described-in-words.
+- Keep equipment/line identifiers in labels: "L09 pipeline pressure", not bare "Pressure". Board name is usually the zone or topic ("Zone C").
+- A zone is a named area (Zone C). Debt/owe/people tracking are normal text or number metrics.
+- remove_targets: metric labels to drop. finalize/rename need no metrics.
+- confidence 0..1 — be honest; below ~0.6 the bot asks a clarifying question.
+
+JSON shape: {"action":"propose|add|remove|rename|finalize|none","name":"","zone":"","metrics":[],"remove_targets":[],"confidence":0.0}"""
+
+ITERATE_VERBS = re.compile(
+    r"\b(add|remove|drop|delete|finali[sz]e|rename|track|monitor|measure|watch)\b", re.I)
 
 
-def extract_name(text):
-    """Board name from 'dashboard for X' / 'X dashboard' / quoted '...'."""
-    m = re.search(r"dashboard\s+for\s+([\"']?)([\w\s\-]+?)\1\s*(?:with|tracking|for |,|$)",
-                  text, re.I)
-    if m:
-        return m.group(2).strip()
-    m = re.search(r"([\w][\w\s\-]*?)\s+" + BOARD_WORD + r"\b", text, re.I)
-    if m:
-        cand = m.group(1).strip()
-        prev = None
-        while prev != cand:
-            prev = cand
-            cand = re.sub(r"^(?:create|make|build|set\s+up|new|a|an|the)\s+",
-                          "", cand, flags=re.I)
-        if cand:
-            return cand
-    m = re.search(r"\"([^\"]+)\"", text)
-    if m:
-        return m.group(1).strip()
-    return ""
+def _ws_norm(s):
+    return re.sub(r"\s+", " ", str(s or "")).strip().lower()
 
 
-def _strip_board_ref(s, board_name=""):
-    """Drop trailing 'to/for/from the dashboard' + board name from add/remove args."""
-    s = re.sub(r"\b(?:to|on|for|in|from|of)\s+(?:the|this|that|my)?\s*"
-               r"(?:dashboard|board)\b.*$", "", s, flags=re.I)
-    if board_name:
-        s = re.sub(re.escape(board_name) + r"\s*$", "", s, flags=re.I)
-    return s.strip().rstrip(".")
+def extract_board_turn(text, org_id):
+    """SLM parse of a builder turn. Returns dict or {"action":"none","confidence":0}."""
+    from config import load_registry
+    from brain.groq_provider import GroqBrain
+    from utils.observability import log_llm_call, new_request_id, timed, elapsed_ms
+    try:
+        from data import dashboards as boards
+        all_b = boards.list_dashboards(org_id)
+    except Exception:
+        all_b = []
+    drafts = [{"name": d["name"],
+               "metrics": [m["label"] for m in d["metrics"]]}
+              for d in all_b if d["status"] == "draft"]
+    live = [{"name": b["name"], "zone": b["zone"]}
+            for b in all_b if b["status"] == "live"]
+    user_block = (f"Message: {text}\nDrafts: {json.dumps(drafts) or '[]'}\n"
+                  f"Live boards: {json.dumps(live) or '[]'}")
+    reg = load_registry()
+    brain = GroqBrain(reg)
+    req_id = new_request_id()
+    t0 = timed()
+    try:
+        raw, usage = brain.chat_full(
+            "groq-slm",
+            [{"role": "system", "content": EXTRACT_SYSTEM},
+             {"role": "user", "content": user_block}], temperature=0)
+        latency = elapsed_ms(t0)
+        m = re.search(r"\{.*\}", raw, re.S)
+        data = json.loads(m.group(0)) if m else {}
+        log_llm_call(req_id, org_id, "operations",
+                     {"task_type": "board_extract", "complexity": "low"},
+                     "groq-slm",
+                     brain.registry.get("groq-slm", {}).get("model_id", ""),
+                     user_block, raw, usage, latency)
+    except Exception as e:
+        latency = elapsed_ms(t0)
+        try:
+            log_llm_call(req_id, org_id, "operations",
+                         {"task_type": "board_extract", "complexity": "low"},
+                         "groq-slm", "", user_block, None, None, latency,
+                         error=str(e))
+        except Exception:
+            pass
+        return {"action": "none", "confidence": 0.0}
+    action = str(data.get("action", "none")).lower()
+    if action not in {"propose", "add", "remove", "rename", "finalize", "none"}:
+        action = "none"
+    try:
+        conf = float(data.get("confidence", 0.0))
+    except (ValueError, TypeError):
+        conf = 0.0
+    return {"action": action,
+            "name": str(data.get("name", "") or "").strip(),
+            "zone": str(data.get("zone", "") or "").strip(),
+            "metrics": data.get("metrics") if isinstance(data.get("metrics"), list) else [],
+            "remove_targets": data.get("remove_targets") if isinstance(data.get("remove_targets"), list) else [],
+            "confidence": max(0.0, min(1.0, conf))}
 
 
 def _short_ts(ts):
@@ -153,11 +167,15 @@ def _drafts(org_id):
     return [b for b in list_dashboards(org_id) if b["status"] == "draft"]
 
 
-def _resolve_draft(text, org_id):
-    """Named draft in text, else the single draft, else None + hint."""
+def _resolve_draft(text, org_id, hint_name=""):
+    """Named draft in text (or LLM-resolved name), else single draft, else hint."""
     drafts = _drafts(org_id)
     if not drafts:
         return None, "no draft board yet"
+    if hint_name:
+        for d in drafts:
+            if _ws_norm(d["name"]) == _ws_norm(hint_name):
+                return d, ""
     low = text.lower()
     for d in drafts:
         if d["name"].lower() in low:
@@ -184,16 +202,60 @@ def _board_evidence(board):
     }]
 
 
+def _is_builder_turn(text, org_id):
+    """Cheap deterministic gate: board word, known board name/zone, or
+    iterate verbs while a draft exists. The LLM parses; gate only routes."""
+    low = text.lower()
+    if re.search(BOARD_WORD, low):
+        return True
+    try:
+        from data import dashboards as boards
+        all_b = boards.list_dashboards(org_id)
+    except Exception:
+        return False
+    for b in all_b:
+        if b["name"].lower() in low or (b["zone"] and b["zone"].lower() in low):
+            return True
+    if any(b["status"] == "draft" for b in all_b) and ITERATE_VERBS.search(low):
+        return True
+    return False
+
+
+def _judge(tag):
+    return {"decision": "board_builder", "reason": tag, "tool_task": ""}
+
+
+def _preview_pointer(name):
+    return f"\n\nSee it taking shape in Boards > {name}."
+
+
 def handle_builder(text, org_id):
     """Builder turn? Returns (answer, judge, evidence, trace) or None."""
-    low = text.lower()
-    if not re.search(BOARD_WORD, low):
-        return None
     from data import dashboards as boards
+    if not _is_builder_turn(text, org_id):
+        return None
+
+    # fast path: finalize with no drafts needs no parse
+    if re.search(r"finali[sz]e", text, re.I) and not _drafts(org_id):
+        return (f"No draft board to finalize. Say 'create a Zone C "
+                f"dashboard tracking ...' first.",
+                _judge("finalize with no draft"), [],
+                ["builder: finalize, no draft"])
+
+    ext = extract_board_turn(text, org_id)
+    action, conf = ext["action"], ext["confidence"]
+    if action == "none" or conf < 0.6:
+        drafts = _drafts(org_id)
+        hint = ("Current drafts: " + ", ".join(d["name"] for d in drafts) + "."
+                if drafts else "No drafts yet.")
+        return (f"I couldn't pin that down. {hint} Try: 'create a <name> "
+                f"dashboard tracking <metric> in <unit>'.",
+                _judge(f"clarify (action={action}, conf={conf:.2f})"), [],
+                [f"builder: clarify, action={action} conf={conf:.2f}"])
 
     # --- finalize ---
-    if re.search(r"finali[sz]e", low):
-        draft, hint = _resolve_draft(text, org_id)
+    if action == "finalize":
+        draft, hint = _resolve_draft(text, org_id, ext["name"])
         if not draft:
             if hint == "no draft board yet":
                 return (f"No draft board to finalize. Say 'create a Zone C "
@@ -221,19 +283,19 @@ def handle_builder(text, org_id):
                 {"decision": "board_builder",
                  "reason": f"finalized {live['id']}",
                  "tool_task": ""}, _board_evidence(live),
-                [f"builder: finalized {live['id']} (template, no LLM call)"])
+                [f"builder: finalized {live['id']} (slm extract)"])
 
-    # --- iterate: add metric ---
-    m_add = re.search(r"\badd\b(.+)$", text, re.I | re.S)
-    if m_add and not re.search(r"\bcreat|mak|build|new\b", low):
-        draft, hint = _resolve_draft(text, org_id)
+    # --- iterate: add metric (LLM-parsed, code-validated) ---
+    if action == "add":
+        draft, hint = _resolve_draft(text, org_id, ext["name"])
         if not draft:
             return (f"No draft board to add to. {hint}.",
                     {"decision": "board_builder",
                      "reason": "add with no draft", "tool_task": ""}, [],
                     ["builder: add, no draft"])
-        new_ms = extract_metrics(
-            "track " + _strip_board_ref(m_add.group(1), draft["name"]))
+        # echo-guard: never accept a metric that just repeats the board name
+        new_ms = [m for m in ext["metrics"]
+                  if _ws_norm(m.get("label", "")) != _ws_norm(draft["name"])]
         if not new_ms:
             return (f"What should I add to {draft['name']}? "
                     f"Say 'add oil sold this month in kL'.",
@@ -254,27 +316,34 @@ def handle_builder(text, org_id):
                      "reason": "add failed: " + str(e), "tool_task": ""},
                     _board_evidence(draft), ["builder: add failed"])
         answer = (f"{upd['name']} (draft) — updated:\n{_schema_lines(upd)}\n\n"
-                  f"Reply 'add ...', 'remove ...', or 'finalize'.")
+                  f"Reply 'add ...', 'remove ...', or 'finalize'."
+                  + _preview_pointer(upd["name"]))
         return (answer,
                 {"decision": "board_builder",
                  "reason": f"added metrics to {upd['id']}", "tool_task": ""},
                 _board_evidence(upd),
                 [f"builder: added {len(new_ms)} metric(s) to {upd['id']}"])
 
-    # --- iterate: remove metric ---
-    m_rm = re.search(r"\b(?:remove|drop|delete|take\s+off)\b(.+)$", text, re.I | re.S)
-    if m_rm:
-        draft, hint = _resolve_draft(text, org_id)
+    # --- iterate: remove metric (LLM-parsed targets, fuzzy code match) ---
+    if action == "remove":
+        draft, hint = _resolve_draft(text, org_id, ext["name"])
         if not draft:
             return (f"No draft board to change. {hint}.",
                     {"decision": "board_builder",
                      "reason": "remove with no draft", "tool_task": ""}, [],
                     ["builder: remove, no draft"])
-        target = _strip_board_ref(m_rm.group(1), draft["name"]).lower()
+        targets = [_ws_norm(t) for t in ext["remove_targets"] if str(t).strip()]
+        if not targets:
+            return (f"Which metric should go? Current metrics on "
+                    f"{draft['name']}:\n{_schema_lines(draft)}",
+                    {"decision": "board_builder",
+                     "reason": "remove no targets", "tool_task": ""},
+                    _board_evidence(draft), ["builder: remove no targets"])
         kept = [m for m in draft["metrics"]
-                if target not in m["label"].lower() and target not in m["key"]]
+                if not any(t in _ws_norm(m["label"]) or t in _ws_norm(m["key"])
+                           for t in targets)]
         if len(kept) == len(draft["metrics"]):
-            return (f"Nothing matching '{target}' on "
+            return (f"Nothing matching '{', '.join(ext['remove_targets'])}' on "
                     f"{draft['name']}. Current metrics:\n{_schema_lines(draft)}",
                     {"decision": "board_builder",
                      "reason": "remove no match", "tool_task": ""},
@@ -287,19 +356,46 @@ def handle_builder(text, org_id):
                     _board_evidence(draft), ["builder: remove blocked"])
         upd = boards.update_dashboard(draft["id"], org_id, metrics=kept)
         answer = (f"{upd['name']} (draft) — updated:\n{_schema_lines(upd)}\n\n"
-                  f"Reply 'add ...', 'remove ...', or 'finalize'.")
+                  f"Reply 'add ...', 'remove ...', or 'finalize'."
+                  + _preview_pointer(upd["name"]))
         return (answer,
                 {"decision": "board_builder",
                  "reason": f"removed metric from {upd['id']}", "tool_task": ""},
                 _board_evidence(upd),
                 [f"builder: removed metric from {upd['id']}"])
 
-    # --- propose ---
-    if re.search(r"\b(?:create|make|build|set\s*up|new)\b", low):
-        name = extract_name(text) or "Untitled board"
-        zone_m = ZONE_RE.search(name) or ZONE_RE.search(text)
-        zone = zone_m.group(0) if zone_m else ""
-        metrics = extract_metrics(text)
+    # --- iterate: rename draft ---
+    if action == "rename":
+        draft, hint = _resolve_draft(text, org_id, ext["name"])
+        if not draft:
+            return (f"No draft board to rename. {hint}.",
+                    _judge("rename with no draft"), [],
+                    ["builder: rename, no draft"])
+        if not ext["name"]:
+            return (f"What should {draft['name']} be called?",
+                    _judge("rename unnamed"),
+                    _board_evidence(draft), ["builder: rename unnamed"])
+        upd = boards.update_dashboard(draft["id"], org_id, name=ext["name"])
+        if not upd:
+            return (f"Could not rename.", _judge("rename failed"),
+                    [], ["builder: rename failed"])
+        return (f"Renamed to {upd['name']} (draft)."
+                + _preview_pointer(upd["name"]),
+                _judge(f"renamed to {upd['id']}"),
+                _board_evidence(upd),
+                [f"builder: renamed {upd['id']} (slm extract)"])
+
+    # --- propose (LLM-parsed name/zone/metrics, code-validated) ---
+    if action == "propose":
+        name = ext["name"]
+        zone = ext["zone"]
+        if not zone:
+            zone_m = ZONE_RE.search(name) or ZONE_RE.search(text)
+            zone = zone_m.group(0) if zone_m else ""
+        if not name:
+            name = zone or "Untitled board"
+        metrics = [m for m in ext["metrics"]
+                   if _ws_norm(m.get("label", "")) != _ws_norm(name)]
         try:
             draft = boards.propose_dashboard(org_id, name, zone=zone,
                                              metrics=metrics or [],
@@ -311,7 +407,8 @@ def handle_builder(text, org_id):
                     [], ["builder: propose failed"])
         if metrics:
             answer = (f"Drafted {draft['name']} (draft):\n{_schema_lines(draft)}\n\n"
-                      f"Reply 'add ...', 'remove ...', or 'finalize' to make it live.")
+                      f"Reply 'add ...', 'remove ...', or 'finalize' to make it live."
+                      + _preview_pointer(draft["name"]))
         else:
             answer = (f"Drafted {draft['name']} (draft) with no metrics yet. "
                       f"What should it track? Say 'add pipe pressure in bar'.")
@@ -319,6 +416,6 @@ def handle_builder(text, org_id):
                 {"decision": "board_builder",
                  "reason": f"proposed {draft['id']}", "tool_task": ""},
                 _board_evidence(draft),
-                [f"builder: proposed {draft['id']} (template, no LLM call)"])
+                [f"builder: proposed {draft['id']} (slm extract)"])
 
     return None
