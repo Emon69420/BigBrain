@@ -184,7 +184,7 @@ function HowComputed({ msg }){
   );
 }
 
-export function ChatView({ messages, onAsk, loading, onInfo, phase }){
+export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt }){
   const lastAssistant=[...messages].reverse().find(m=>m.role==="assistant");
   const ev=lastAssistant?.evidence||[];
   const lastUser=[...messages].reverse().find(m=>m.role==="user");
@@ -225,7 +225,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
             <span className="badge"><span className="badge-dot"/>auto</span>
             <span className="small muted">model routed per message · sources open via ⓘ on any answer</span>
           </div>
-          <SearchBox onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…"/>
+          <SearchBox key={buildPrompt||"ask"} onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…" initial={buildPrompt}/>
         </div>
       </div>
     </div>
@@ -242,7 +242,7 @@ export function EvidencePanel({ open, onClose, msg, highlightDoc }){
       {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}><em>No sources — this answer used general knowledge.</em></div>}
       {msg?.evidence?.map((e,i)=>(
         <div key={i} style={{padding:"12px 16px", borderBottom:"1px solid var(--line)", background: highlightDoc===String(e.doc_id)?"var(--panel)":"transparent"}}>
-          <div className="small" style={{color:"var(--muted)"}}>{e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{e.title}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
+          <div className="small" style={{color:"var(--muted)"}}>{e.board ? `[board:${String(e.title||"").replace(/^board:/,"")||e.doc_id}]` : e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{e.title}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
           <div style={{marginTop:6, whiteSpace:"pre-wrap", fontSize:14}}>{e.content}</div>
         </div>
       ))}

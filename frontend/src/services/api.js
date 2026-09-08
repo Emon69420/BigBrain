@@ -50,3 +50,10 @@ export async function renameConversation(cid,title){
 }
 export async function getMessages(cid){ return get(`/conversations/${cid}/messages`); }
 export async function postMessage(cid, msg){ return post(`/conversations/${cid}/messages`,msg); }
+// dashboard maker (boards)
+export async function listBoards(){ return get("/dashboards"); }
+export async function getBoard(id){ return get(`/dashboards/${encodeURIComponent(id)}`); }
+export async function proposeBoard(payload){ return post("/dashboards/propose", payload); }
+export async function finalizeBoard(id){ return post(`/dashboards/${encodeURIComponent(id)}/finalize`,{}); }
+export async function submitReadings(id, values){ return post(`/dashboards/${encodeURIComponent(id)}/readings`,{values}); }
+export async function getBoardHistory(id, metric, days=30){ return get(`/dashboards/${encodeURIComponent(id)}/history?metric=${encodeURIComponent(metric)}&days=${days}`); }
