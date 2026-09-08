@@ -26,7 +26,7 @@ function Spark({ points }){
   return <svg width={w} height={h} aria-label="trend"><polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth="1.5"/></svg>;
 }
 
-function BoardDetail({ id, onBack }){
+function BoardDetail({ id, onBack, embedded }){
   const [b,setB]=useState(null);
   const [hist,setHist]=useState({});
   const [msg,setMsg]=useState("");
@@ -62,7 +62,7 @@ function BoardDetail({ id, onBack }){
   const live = b.status==="live";
   return (
     <div>
-      <button className="btn" style={{padding:"2px 10px", marginBottom:10}} onClick={onBack}>← All boards</button>
+      {!embedded && <button className="btn" style={{padding:"2px 10px", marginBottom:10}} onClick={onBack}>← All boards</button>}
       <h2 style={{margin:"0 0 4px"}}>{b.name}</h2>
       <p className="small muted" style={{margin:"0 0 12px"}}>
         {b.zone && <span className="badge" style={{marginRight:6}}>{b.zone}</span>}
@@ -71,7 +71,7 @@ function BoardDetail({ id, onBack }){
       {!live && (
         <div className="card" style={{marginBottom:12}}>
           <div className="small">Draft — reshape it in chat ("add …", "remove …"), then go live.</div>
-          <div style={{marginTop:8}}><button className="btn btn-primary" onClick={finalize}>Finalize — make it live</button></div>
+          {!embedded && <div style={{marginTop:8}}><button className="btn btn-primary" onClick={finalize}>Finalize — make it live</button></div>}
         </div>
       )}
       <div style={{display:"grid", gap:10, gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))"}}>
@@ -92,25 +92,31 @@ function BoardDetail({ id, onBack }){
           </div>
         ))}
       </div>
-      {live && (
-        <div className="card" style={{marginTop:12}}>
-          <h3 style={{margin:"0 0 8px"}}>Update readings</h3>
-          <form onSubmit={save} style={{display:"grid", gap:8, maxWidth:420}}>
-            {(b.metrics||[]).map(m=>(
-              <label key={m.key} className="small">
-                {m.label}{m.unit?` (${m.unit})`:""}
-                <input name={m.key} className="input" style={{marginTop:4}}
-                  type={m.kind==="number"?"number":"text"} step="any"
-                  placeholder={m.kind==="number"?"e.g. 4.2":"e.g. normal"}/>
-              </label>
-            ))}
-            <div><button className="btn btn-primary" type="submit">Save readings</button></div>
-          </form>
-        </div>
-      )}
+      <div className="card" style={{marginTop:12}}>
+        <h3 style={{margin:"0 0 8px"}}>{live ? "Update readings" : "Entry preview"}</h3>
+        {!live && <p className="small muted" style={{margin:"0 0 8px"}}>These are the exact fields staff will fill — unlocked on finalize.</p>}
+        <form onSubmit={save} style={{display:"grid", gap:8, maxWidth:420}}>
+          {(b.metrics||[]).map(m=>(
+            <label key={m.key} className="small">
+              {m.label}{m.unit?` (${m.unit})`:""}
+              <input name={m.key} className="input" style={{marginTop:4}}
+                type={m.kind==="number"?"number":"text"} step="any"
+                disabled={!live || embedded}
+                placeholder={m.kind==="number"?"e.g. 4.2":"e.g. normal"}/>
+            </label>
+          ))}
+          {live && !embedded && <div><button className="btn btn-primary" type="submit">Save readings</button></div>}
+        </form>
+      </div>
       {msg && <p className="small muted">{msg}</p>}
     </div>
   );
+}
+
+// Slim read-only embed for the chat preview drawer. One edit path lives
+// on the Boards page; the drawer shows shape + values only.
+export function BoardPreview({ id }){
+  return <BoardDetail id={id} embedded/>;
 }
 
 export function BoardsView({ onBuild }){

@@ -1,7 +1,8 @@
 // Chat per design.md §7: hairline turns, orb model badge, Task List Card,
 // Reasoning disclosure (collapsed), Evidence drawer, hairline input bar.
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SearchBox, PhaseIndicator } from "../components/SearchPerplexity.jsx";
+import { BoardPreview } from "./Boards.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
 import * as api from "../services/api.js";
 
@@ -189,6 +190,13 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt 
   const ev=lastAssistant?.evidence||[];
   const lastUser=[...messages].reverse().find(m=>m.role==="user");
   const showCard = phase || lastAssistant;
+  // live board preview: latest assistant message carrying board evidence
+  const [boardRef, setBoardRef] = useState(null);
+  const boardMsg=[...messages].reverse().find(m=>m.role==="assistant" && (m.evidence||[]).some(e=>e.board));
+  const boardId=boardMsg ? (boardMsg.evidence.find(e=>e.board)||{}).doc_id : null;
+  useEffect(()=>{
+    if(boardMsg && boardId) setBoardRef(r=>(r && r.mid===boardMsg.id) ? r : {id:boardId, mid:boardMsg.id});
+  },[messages]);
   return (
     <div className="center-col">
       <div>
@@ -213,6 +221,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt 
                     <span className="badge"><span className={`badge-dot ${m.general_knowledge?"":"low"}`} style={m.general_knowledge?{background:"var(--st-unverified)"}:null}/>{m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
                   )}
                   {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
+                  {(m.evidence||[]).some(e=>e.board) && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>{ const b=(m.evidence.find(e=>e.board)||{}); if(b.doc_id) setBoardRef({id:b.doc_id, mid:m.id}); }}>▦ board</button>}
                 </div>
                 <HowComputed msg={m}/>
               </div>
@@ -227,6 +236,16 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt 
           </div>
           <SearchBox key={buildPrompt||"ask"} onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…" initial={buildPrompt}/>
         </div>
+        {boardRef && (
+          <div className="evidence-panel open">
+            <div style={{padding:16, borderBottom:"1px solid var(--line)", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+              <strong>Board preview</strong><button className="btn" onClick={()=>setBoardRef(null)}>×</button>
+            </div>
+            <div style={{padding:16}} key={boardRef.mid}>
+              <BoardPreview id={boardRef.id}/>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
