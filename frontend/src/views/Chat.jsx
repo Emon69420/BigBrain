@@ -1,7 +1,40 @@
 // Chat per design.md §7: hairline turns, orb model badge, Task List Card,
 // Reasoning disclosure (collapsed), Evidence drawer, hairline input bar.
+import { useState } from "react";
 import { SearchBox, PhaseIndicator } from "../components/SearchPerplexity.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
+import * as api from "../services/api.js";
+
+function DecisionDNA({ msg }){
+  const [dna, setDna] = useState(null);
+  const [err, setErr] = useState("");
+  if(msg?.role !== "assistant" || !msg?.request_id) return null;
+  async function load(e){
+    if(e.target.open && !dna && !err){
+      try{ setDna(await api.getDecisionByRequest(msg.request_id)); }
+      catch(ex){ setErr(ex.message); }
+    }
+  }
+  const evCount = Array.isArray(dna?.evidence) ? dna.evidence.length : 0;
+  const toolName = dna?.tool_used?.name || null;
+  const rt = dna?.redteam || null;
+  return (
+    <details className="reasoning" onToggle={load}>
+      <summary>Why this answer? <span className="chev">▶</span></summary>
+      <div style={{marginTop:6}}>
+        {!dna && !err && <div className="reason-line">Opens the persisted Decision DNA record.</div>}
+        {err && <div className="reason-line">Could not load record: {err}</div>}
+        {dna && (<>
+          <div className="reason-line"><span className="mono">{dna.id}</span><span>&nbsp;· {dna.task_type || "answer"} · {dna.model_key || "model"}</span></div>
+          <div className="reason-line">Evidence: {evCount} chunk{evCount === 1 ? "" : "s"}{toolName ? ` · tool ${toolName}` : ""}</div>
+          <div className="reason-line">Red Team: {rt ? `${rt.verdict}${(rt.findings||[]).length ? ` (${rt.findings.length} findings)` : ""}` : "not recorded"}</div>
+          <div className="reason-line small muted">Asked: {(dna.question || "").slice(0, 140)}</div>
+        </>)}
+      </div>
+      <div style={{borderTop:"1px solid var(--line)", marginTop:8}}/>
+    </details>
+  );
+}
 
 function renderWithCites(text, onCite){
   if(!text) return null;
@@ -155,6 +188,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
                 </div>
                 <ReasoningLines msg={m}/>
                 <RedTeamStory msg={m}/>
+                <DecisionDNA msg={m}/>
               </div>
             )
           ))}
