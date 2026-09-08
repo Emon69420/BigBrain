@@ -54,6 +54,11 @@ class GroqBrain(BrainProvider):
         # pass through any extra Groq params
         kwargs.update(kw)
         resp = self.client.chat.completions.create(**kwargs)
+        try:
+            from security.service import record, MODEL_API_HOST
+            record("model", MODEL_API_HOST, "allowed-api", source=f"model:{kwargs.get('model', '')}")
+        except Exception:
+            pass  # accounting must never break inference
         text = resp.choices[0].message.content
         usage = None
         try:

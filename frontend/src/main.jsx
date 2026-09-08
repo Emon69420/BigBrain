@@ -9,6 +9,7 @@ import { OrgSelect } from "./views/OrgSelect.jsx";
 import { ChatView, EvidencePanel } from "./views/Chat.jsx";
 import { KBView } from "./views/KB.jsx";
 import { ToolsView } from "./views/Tools.jsx";
+import { SecurityView } from "./views/Security.jsx";
 import { FileUpload, TextIngest } from "./components/FileUpload.jsx";
 import { useIngest } from "./hooks/useIngest.js";
 import BrainMark from "./components/BrainMark.jsx";
@@ -24,9 +25,9 @@ const RAIL_ICONS = {
 
 function IconRail({ view, setView }){
   const items=[
-    ["chat","Chat"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],
+    ["chat","Chat"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],["security","Security"],
   ];
-  const soon=[["security","Security (soon)"],["audit","Audit (soon)"]];
+  const soon=[["audit","Audit (soon)"]];
   return (
     <div className="icon-rail" role="navigation" aria-label="Primary">
       <div className="rail-mark" title="BigBrain"><BrainMark size={22}/></div>
@@ -180,6 +181,7 @@ function AppShell({ user, orgs, onLogout }){
           )}
           {view==="kb" && <KBView/>}
           {view==="tools" && <ToolsView/>}
+          {view==="security" && <SecurityView/>}
           {view==="ingest" && (
             <div>
               <h2>Ingest</h2>

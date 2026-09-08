@@ -34,6 +34,10 @@ export async function register(email,name,password){ return post("/auth/register
 export async function login(email,password){ return post("/auth/login",{email,password}); }
 export async function logout(){ return post("/auth/logout",{}); }
 export async function me(){ return get("/auth/me"); }
+// security dashboard (neutral labels; audit rows carry true destinations)
+export async function getSecurityStatus(){ return get("/security/status"); }
+export async function getAllowlist(){ return get("/security/allowlist"); }
+export async function demoEgress(target){ return post("/security/demo-egress", target?{target}:{}); }
 // chat threads
 export async function listConversations(){ return get("/conversations"); }
 export async function createConversation(title="New chat"){ return post("/conversations",{title}); }
