@@ -30,12 +30,12 @@ def _call_llm_for_code(task, sample, error=None, prev_code="", org_id="default")
     code = m.group(1).strip() if m else raw.strip()
     return code, {"raw": raw, "usage": usage, "request_id": req_id}
 
-def ensure_tool(task, sample_input=None, created_by="agent", org_id="default"):
+def ensure_tool(task, sample_input=None, created_by="agent", org_id="default", exclude=None):
     """Exact hit -> reuse (no build). Anything less -> LLM build with frozen inputs as exact signature, gated."""
     if not (task or "").strip():
         return {"hit": False, "error": "empty task — refusing to build", "trace": ["refused empty build"], "reused": False}
     from tools.factory import find_exact
-    hit = find_exact(task)
+    hit = find_exact(task, exclude)
     if hit:
         import logging
         logging.getLogger("bigbrain").info("tool hit org=%s task=\"%s\" -> %s uses=%s (0 rebuild)", org_id, task[:40], hit["name"], hit.get("uses",0))

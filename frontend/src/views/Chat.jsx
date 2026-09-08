@@ -28,13 +28,18 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
                 <div style={{whiteSpace:"pre-wrap"}}>{renderWithCites(m.content, (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
                 <div className="meta">
                   {m.model_key && <span className="badge">{m.model_key}</span>}
-                  <span className="badge" style={m.general_knowledge ? {background:"var(--warning)", color:"#000", borderColor:"#f59e0b"} : {background:"var(--accent-soft)", borderColor:"var(--accent)"}}>
-                    {m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}
-                  </span>
-                  {m.tool_used && <span className="badge" style={{background: m.tool_used.newly_created ? "#7c3aed" : "#1e293b", color:"#fff", borderColor: m.tool_used.newly_created ? "#6d28d9" : "#334155"}}>Tool {m.tool_used.hit?"hit":"built"}: {m.tool_used.name} {m.tool_used.newly_created ? "(newly created)" : m.tool_used.hit?`(uses ${m.tool_used.uses}, 0 rebuild)`:""} {m.tool_used.chain ? "· chain" : ""}</span>}
+                  {m.tool_used && m.tool_used.error ? (
+                    <span className="badge" style={{background:"#fef2f2", color:"#dc2626", borderColor:"#fecaca"}}>Tool failed — answer unverified</span>
+                  ) : m.tool_used && m.tool_used.result ? (
+                    <span className="badge" style={{background:"var(--accent-soft)", borderColor:"var(--accent)"}}>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
+                  ) : (
+                    <span className="badge" style={m.general_knowledge ? {background:"var(--warning)", color:"#000", borderColor:"#f59e0b"} : {background:"var(--accent-soft)", borderColor:"var(--accent)"}}>
+                      {m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}
+                    </span>
+                  )}
                   {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
                 </div>
-                {m.tool_trace?.length>0 && <div className="small muted" style={{marginTop:6, fontFamily:"var(--mono)", fontSize:11}}>{m.tool_trace.join(" → ")}</div>}
+                {m.tool_trace?.length>0 && <details className="small muted" style={{marginTop:6}}><summary style={{cursor:"pointer"}}>How this was computed</summary><div style={{fontFamily:"var(--mono)", fontSize:11, marginTop:4}}>{m.tool_trace.join(" → ")}</div></details>}
               </div>
             )
           ))}

@@ -115,9 +115,11 @@ def find_tool(task_text):
             best = t
     return best if best_score >= 2 else None
 
-def find_exact(task_text):
+def find_exact(task_text, exclude=None):
     """Hit ONLY if score_fit == exact. Partial/none never execute. Single source of truth for reuse."""
     hit = find_tool(task_text)
+    if hit and (exclude or set()) and hit["name"] in exclude:
+        return None
     if hit and score_fit(task_text, hit) == "exact":
         return hit
     return None

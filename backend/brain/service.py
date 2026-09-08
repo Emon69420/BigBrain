@@ -59,6 +59,21 @@ def _resolve_tool_args(entry_name, inputs, text, arg_map=None, tool_trace=None):
     return args
 
 
+def _satisfiable(entry_name, args):
+    """All required main() params covered by args? Returns (ok, missing_list). Defaults count as covered."""
+    import inspect
+    from tools.factory import load_tool
+    try:
+        sig = inspect.signature(load_tool(entry_name).main)
+    except Exception as e:
+        return False, [f"load-failed: {e}"]
+    missing = [p.name for p in sig.parameters.values()
+               if p.default is inspect.Parameter.empty
+               and p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+               and p.name not in (args or {})]
+    return (len(missing) == 0), missing
+
+
 def ask_question(text, user_dept="operations", org_id="default", request_id=None, retrieve=True, history_text=""):
     """Full ask pipeline. Always-on rewriter + RRF + floor + grounded prompt. Logs every call."""
     request_id = request_id or new_request_id()
@@ -97,6 +112,16 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
             if isinstance(tool_task_obj, str):
                 tool_task_obj = {"purpose": tool_task_obj, "inputs": {}}
             tool_task_str = tool_task_obj.get("purpose", text)
+            # deterministic input repair: judge gave no inputs but query has quantities
+            if not (tool_task_obj.get("inputs") or {}):
+                try:
+                    from tools.factory import extract_inputs as _extract_inputs
+                    _rep = _extract_inputs(text)
+                    if _rep:
+                        tool_task_obj["inputs"] = _rep
+                        tool_trace.append(f"inputs repaired deterministically: {sorted(_rep.keys())}")
+                except Exception as _ex:
+                    tool_trace.append(f"input repair failed: {_ex}")
             try:
                 from brain.selector import select as select_fn
                 from tools.builder import ensure_tool
@@ -128,6 +153,8 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                 # for sufficient: run the selected single (or chain if multiple)
                 to_run = sel.get("selected", [])
                 consumed = set()  # each tool executes at most once per question
+                needs_exact = False  # set when chain skipped for unsatisfiable args -> last-resort exact build
+                rejected = set()  # tools proven unsatisfiable for this question — never re-pick or re-run
                 # if selector said sufficient with one tool, run it; if chain (multiple), run via execute_chain
                 if len(to_run) == 1 and not built:
                     entry = next((t for t in _list() if t["name"]==to_run[0].get("tool")), None)
@@ -138,7 +165,12 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                             args = inputs
                         was_hit = True
                         rebuilt_exact = False
-                        if entry["name"] in consumed:
+                        ok_sat, missing_sat = _satisfiable(entry["name"], args)
+                        if not ok_sat:
+                            tool_trace.append(f"gate: {entry['name']} missing {missing_sat} -> exact build instead")
+                            rejected.add(entry["name"])
+                            run_res = {"ok": False, "error": f"missing args {missing_sat}"}
+                        elif entry["name"] in consumed:
                             tool_trace.append(f"skip dup run: {entry['name']}")
                             run_res = {"ok": False, "error": "duplicate-run-skipped"}
                         else:
@@ -147,7 +179,7 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                         if (not run_res.get("ok")) and inputs and any(s in str(run_res.get("error", "")).lower() for s in ("missing", "unexpected keyword", "positional argument")):
                             # arg mismatch -> build one exact tool for frozen inputs, run once
                             try:
-                                t2 = ensure_tool(f"{tool_task_str} [exact args {sorted(inputs.keys())}]", sample_input=inputs, created_by="auto", org_id=org_id)
+                                t2 = ensure_tool(f"{tool_task_str} [exact args {sorted(inputs.keys())}]", sample_input=inputs, created_by="auto", org_id=org_id, exclude=rejected)
                                 tool_trace.extend(t2.get("trace", []))
                                 if t2.get("entry") and not t2.get("hit"):
                                     r2 = run_tool(t2["entry"]["name"], inputs)
@@ -186,11 +218,29 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                             steps.append({"tool": r["name"], "args": tool_task_obj.get("inputs",{})})
                     # each tool executes at most once per question
                     steps = [s for s in steps if s["tool"] not in consumed]
-                    for s in steps:
-                        consumed.add(s["tool"])
                     if not steps and built:
                         steps = [{"tool": built[0]["name"], "args": tool_task_obj.get("inputs",{})}]
-                    if steps:
+                    # satisfaction gate per step (same fill rule execute_chain uses: step args + initial)
+                    merged_initial = tool_task_obj.get("inputs", {}) or {}
+                    bad_steps = []
+                    for s in steps:
+                        sargs = s.get("args", {}) or {}
+                        flow_fed = {k for k, v in sargs.items() if isinstance(v, str) and v.startswith("__from:")}
+                        marg = dict(merged_initial)
+                        marg.update({k: v for k, v in sargs.items() if k not in flow_fed})
+                        ok_sat, missing_sat = _satisfiable(s["tool"], marg)
+                        missing_sat = [m for m in missing_sat if m not in flow_fed]
+                        if missing_sat:
+                            bad_steps.append((s["tool"], missing_sat))
+                    if bad_steps:
+                        tool_trace.append(f"chain skipped, unsatisfiable: {bad_steps} -> exact build instead")
+                        needs_exact = True
+                        for _bn, _ in bad_steps:
+                            rejected.add(_bn)
+                    else:
+                        for s in steps:
+                            consumed.add(s["tool"])
+                    if steps and not bad_steps:
                         from tools.factory import execute_chain
                         exec_res = execute_chain(steps, initial_args=tool_task_obj.get("inputs",{}))
                         tool_trace.extend(exec_res.get("trace", []))
@@ -223,9 +273,10 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                     if run_res.get("ok"):
                         tool_used = {"name": entry["name"], "hit": False, "uses": 0, "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": True}
                         evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "newly_created": True}] + evidence
-                if not tool_used and not built and not to_run and not reused:
-                    # selector said none but builder failed — ensure one full tool as last resort
-                    t_res = ensure_tool(tool_task_str, sample_input=tool_task_obj.get("inputs"), created_by="auto", org_id=org_id)
+                if not tool_used and (not built and not to_run and not reused or needs_exact):
+                    # nothing ran (or chain skipped for unsatisfiable args) — ensure one full tool as last resort
+                    # rejected tools are excluded so the gate cannot be re-hit by the same wrong tool
+                    t_res = ensure_tool(tool_task_str, sample_input=tool_task_obj.get("inputs"), created_by="auto", org_id=org_id, exclude=rejected)
                     tool_trace.extend(t_res.get("trace", []))
                     entry = t_res.get("entry")
                     if entry:

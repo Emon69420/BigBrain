@@ -64,7 +64,7 @@ tools:
     in newton‑meters.'
   status: unverified
   version: 1
-  uses: 8
+  uses: 11
   created_by: auto
 - name: compute_tesla_battery_usage
   path: backend/tools/custom/compute_tesla_battery_usage.py
@@ -183,7 +183,7 @@ tools:
     Returns: final_amount (float), total_interest (float)'
   status: unverified
   version: 1
-  uses: 4
+  uses: 5
   created_by: auto
 - name: total_time_until_the
   path: backend/tools/custom/total_time_until_the.py
@@ -195,6 +195,14 @@ tools:
     (float)
 
     Returns: total_time_s (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto
+- name: compute_heat_duty_in
+  path: backend/tools/custom/compute_heat_duty_in.py
+  desc: Calculate heat duty in kilowatts.
+  full_desc: Calculate heat duty in kilowatts.
   status: unverified
   version: 1
   uses: 1
