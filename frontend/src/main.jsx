@@ -157,7 +157,7 @@ function AppShell({ user, orgs, onLogout }){
     setCid(r.id); setMessages([]); loadThreads();
   }
   return (
-    <div className="shell">
+    <div className="shell" style={{gridTemplateColumns: view==="chat" ? "56px 260px 1fr" : "56px 1fr"}}>
       <IconRail view={view} setView={setView}/>
       {view==="chat" && (
         <ChatsPanel threads={threads} cid={cid} onSelect={(id)=>{ setCid(id); }} onNew={handleNew} onRename={handleRename} user={user} onLogout={onLogout}/>
@@ -187,8 +187,8 @@ function AppShell({ user, orgs, onLogout }){
           {view==="kb" && <KBView/>}
           {view==="tools" && <ToolsView/>}
           {view==="ingest" && (
-            <div style={{maxWidth:720, margin:"0 auto"}}>
-              <h2 style={{fontSize:20, margin:"0 0 6px", color:"var(--ink-app)"}}>Ingest</h2>
+            <div style={{width:"100%"}}>
+              <h2 style={{fontSize:22, margin:"0 0 6px", color:"var(--ink-app)"}}>Ingest</h2>
               <p style={{color:"var(--muted-app)", fontSize:13}}>Files land in <strong style={{color:"var(--ink-app)"}}>{orgId}</strong> only. Org-divided, never cross-leaks.</p>
               <div className="card" style={{marginTop:16}}>
                 <div className="eyebrow" style={{marginBottom:10}}>File upload</div>

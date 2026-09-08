@@ -23,6 +23,9 @@
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;font-family:var(--sans);background:var(--bg-app);color:var(--ink-app);line-height:1.6;-webkit-font-smoothing:antialiased;overflow:hidden}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:#242847;border-radius:999px}
+::-webkit-scrollbar-track{background:transparent}
 a{color:var(--accent-ink);text-decoration:none} a:hover{text-decoration:underline}
 button,input,textarea,select{font:inherit;color:inherit}
 h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.01em}
@@ -44,8 +47,8 @@ select.input{width:auto}
   radial-gradient(800px 500px at 95% 85%, rgba(124,58,237,.22), transparent 55%),
   radial-gradient(400px 300px at 100% 15%, rgba(99,102,241,.12), transparent 60%);
 }
-.main-col{display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden;background:transparent;position:relative;z-index:1}
-.main-col .content{flex:1;overflow-y:auto;min-height:0;background:transparent;color:var(--ink-app);padding:14px 24px}
+.main-col{display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden;background:transparent;position:relative;z-index:1;width:100%}
+.main-col .content{flex:1;overflow-y:auto;min-height:0;background:transparent;color:var(--ink-app);padding:14px 24px;width:100%;box-sizing:border-box}
 .icon-rail{background:#080A14;border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:6px;position:relative;z-index:2}
 .rail-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#7C3AED);display:grid;place-items:center;color:#fff;margin-bottom:8px;box-shadow:0 2px 12px rgba(99,102,241,.4)}
 .rail-mark svg{display:block}
@@ -145,8 +148,8 @@ select.input{width:auto}
 .table td{padding:10px;border-bottom:1px solid rgba(255,255,255,.06);color:var(--ink-app)}
 .two-col{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
 @media(max-width:1000px){.two-col{grid-template-columns:1fr} .sources-panel{position:static}}
-/* KB graph canvas — PRESERVED EXACTLY (do not theme) */
-.kb-canvas{position:relative;width:100%;height:calc(100vh - 220px);min-height:420px;background:#08090C;overflow:hidden;cursor:grab}
+/* KB graph canvas — PRESERVED EXACTLY (do not theme) + wrapper polish around it */
+.kb-canvas{position:relative;width:100%;height:420px;min-height:420px;background:#08090C;overflow:hidden;cursor:grab;border:1px solid rgba(255,255,255,.06);border-radius:14px}
 .kb-canvas:active{cursor:grabbing}
 .kb-node{cursor:pointer}
 .kb-node circle{fill:#101218;stroke:#2A2E38;stroke-width:1.5}
@@ -155,8 +158,8 @@ select.input{width:auto}
 .kb-node.dim{opacity:.35}
 .kb-edge{stroke:#2A2E38;stroke-width:1}
 .kb-edge.hot{stroke:#EDEEF2}
-.kb-chip{border:1px solid #2A2E38;border-radius:999px;padding:4px 10px;font-size:12px;color:#8A8F9C;cursor:pointer;background:transparent}
-.kb-chip.on{color:#EDEEF2;border-color:#0066cc}
+.kb-chip{border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:5px 12px;font-size:12px;color:#8A8F9C;cursor:pointer;background:rgba(255,255,255,.04)}
+.kb-chip.on{color:#fff;background:rgba(99,102,241,.18);border-color:#6366F1}
 .drawer{position:fixed;inset:0 0 0 auto;width:420px;max-width:92vw;background:#101218;border-left:1px solid #2A2E38;transform:translateX(100%);transition:.2s;z-index:40;overflow:auto}
 .drawer.open{transform:none}
 .drawer-head{padding:16px;border-bottom:1px solid #2A2E38;display:flex;justify-content:space-between;align-items:center;border-top:2px solid transparent}

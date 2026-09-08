@@ -29,10 +29,10 @@ export function ToolsView(){
   }
   if(!stats) return <div>Loading tools…</div>;
   return (
-    <div>
+    <div style={{width:"100%"}}>
       <div style={{display:"flex", gap:8, flexWrap:"wrap", marginBottom:12}}>
         <span className="badge">total {stats.total}</span>
-        <span className="badge" style={{background:"var(--accent-soft)"}}>verified {stats.verified}</span>
+        <span className="badge">verified {stats.verified}</span>
         <span className="badge">unverified {stats.unverified}</span>
         <span className="badge">total uses {stats.total_uses}</span>
       </div>
