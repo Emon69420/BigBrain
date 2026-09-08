@@ -170,11 +170,14 @@ function AppShell({ user, orgs, onLogout }){
               {orgs.map(o=> <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
-          {groundedState==="grounded" && <span className="badge"><span className="badge-dot low"/>grounded</span>}
-          {groundedState==="verified" && <span className="badge"><span className="badge-dot low"/>verified</span>}
-          {groundedState==="unverified" && <span className="badge"><span className="badge-dot" style={{background:"var(--st-unverified)"}}/>unverified</span>}
-          {groundedState==="failed" && <span className="badge"><span className="badge-dot critical"/>failed</span>}
-          {groundedState===null && <span className="badge"><span className="badge-dot"/>idle</span>}
+          <div style={{display:"flex", gap:8, alignItems:"center"}}>
+            {groundedState==="grounded" && <span className="badge"><span className="badge-dot low"/>grounded</span>}
+            {groundedState==="verified" && <span className="badge"><span className="badge-dot low"/>verified</span>}
+            {groundedState==="unverified" && <span className="badge"><span className="badge-dot" style={{background:"var(--st-unverified)"}}/>unverified</span>}
+            {groundedState==="failed" && <span className="badge"><span className="badge-dot critical"/>failed</span>}
+            {groundedState===null && <span className="badge"><span className="badge-dot"/>idle</span>}
+            <button className="btn btn-ghost" style={{fontSize:12, padding:"6px 10px", border:"1px solid rgba(255,255,255,.08)", borderRadius:999, background:"rgba(255,255,255,.04)"}} onClick={onLogout} title="Sign out">Sign out →</button>
+          </div>
         </div>
         <div className="content">
           {view==="chat" && (
@@ -211,9 +214,10 @@ function Root(){
   const { user, orgs, loading, login, register, logout } = useAuth();
   const [entered,setEntered]=useState(()=> localStorage.getItem("bb_entered")==="1");
   function enter(){ localStorage.setItem("bb_entered","1"); setEntered(true); }
-  if(loading) return <div style={{padding:24}}>Loading…</div>;
+  function backToLanding(){ localStorage.removeItem("bb_entered"); setEntered(false); }
+  if(loading) return <div style={{padding:24, color:"var(--ink-app)", background:"var(--bg-app)", minHeight:"100vh"}}>Loading…</div>;
   if(!entered) return <Landing onEnter={enter}/>;
-  if(!user) return <Login onLogin={login} onRegister={register}/>;
+  if(!user) return <Login onLogin={login} onRegister={register} onBack={backToLanding}/>;
   if(!orgs.length) return <div className="card" style={{maxWidth:520, margin:"32px auto"}}>No orgs. <button className="btn" onClick={logout}>Sign out</button></div>;
   // if single org auto-pick else show selector until user picks via topbar
   return <AppShell user={user} orgs={orgs} onLogout={logout}/>;
