@@ -1,6 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as api from "../services/api.js";
 import { GraphCanvas } from "../components/GraphCanvas.jsx";
+
+// Muted categorical palette — never uses risk/state colors (green/yellow/orange/red).
+const COMPONENT_PALETTE = ["#7d8aa5", "#a89c8c", "#8f7fb8", "#6b9e9e", "#b08aa5", "#7fa37a", "#88a0b8", "#b59a7d"];
+
+function componentColors(nodes, edges) {
+  const adj = {};
+  nodes.forEach((n) => { adj[n.id] = []; });
+  edges.forEach((e) => { adj[e.a]?.push(e.b); adj[e.b]?.push(e.a); });
+  const comp = {};
+  let ci = 0;
+  for (const n of nodes) {
+    if (comp[n.id] !== undefined) continue;
+    const queue = [n.id];
+    comp[n.id] = ci;
+    while (queue.length) {
+      const cur = queue.pop();
+      for (const nb of (adj[cur] || [])) {
+        if (comp[nb] === undefined) { comp[nb] = ci; queue.push(nb); }
+      }
+    }
+    ci++;
+  }
+  const map = {};
+  for (const n of nodes) map[n.id] = COMPONENT_PALETTE[comp[n.id] % COMPONENT_PALETTE.length];
+  return map;
+}
 
 export function KBView(){
   const [graph,setGraph]=useState({nodes:[],edges:[]});
@@ -8,7 +34,6 @@ export function KBView(){
   const [dept,setDept]=useState("all");
   const [sel,setSel]=useState(null);
   const [chunks,setChunks]=useState([]);
-  const [hoverId,setHoverId]=useState(null);
   const [pinned,setPinned]=useState({});
   const [err,setErr]=useState("");
 
@@ -18,15 +43,20 @@ export function KBView(){
   }
   useEffect(()=>{ load(); },[]);
 
-  const depts=["all",...new Set(graph.nodes.map(n=>n.dept))];
-  function visible(n){
-    if(dept!=="all" && n.dept!==dept) return false;
-    if(q && !(n.title.toLowerCase().includes(q.toLowerCase()) || n.tags.some(t=>t.toLowerCase().includes(q.toLowerCase())))) return false;
-    return true;
-  }
-  const visNodes=graph.nodes.filter(visible);
-  const visIds=new Set(visNodes.map(n=>n.id));
-  const visEdges=graph.edges.filter(e=>visIds.has(e.a)&&visIds.has(e.b));
+  const depts=useMemo(()=>["all",...new Set(graph.nodes.map(n=>n.dept))],[graph]);
+  // stable colors computed on the FULL graph so filtering never recolors
+  const colorMap=useMemo(()=>componentColors(graph.nodes, graph.edges),[graph]);
+  const visNodes=useMemo(()=>{
+    return graph.nodes.filter(n=>{
+      if(dept!=="all" && n.dept!==dept) return false;
+      if(q && !(n.title.toLowerCase().includes(q.toLowerCase()) || n.tags.some(t=>t.toLowerCase().includes(q.toLowerCase())))) return false;
+      return true;
+    });
+  },[graph,q,dept]);
+  const visEdges=useMemo(()=>{
+    const ids=new Set(visNodes.map(n=>n.id));
+    return graph.edges.filter(e=>ids.has(e.a)&&ids.has(e.b));
+  },[graph,visNodes]);
 
   async function openDoc(d){
     setSel(d);
@@ -57,8 +87,8 @@ export function KBView(){
       )}
       {graph.nodes.length>0 && (
         <div style={{marginTop:12, position:"relative"}}>
-          <GraphCanvas nodes={visNodes} edges={visEdges} selectedId={sel?.id} hoverId={hoverId}
-            onHover={setHoverId} onSelect={openDoc} pinned={pinned} onPin={pin}/>
+          <GraphCanvas nodes={visNodes} edges={visEdges} selectedId={sel?.id}
+            colorMap={colorMap} onSelect={openDoc} pinned={pinned} onPin={pin}/>
           <div className={`drawer${sel?" open":""}`}>
             {!sel && <div style={{padding:16}} className="muted">Select a node.</div>}
             {sel && (<>

@@ -1,23 +1,15 @@
 // KB graph canvas — d3-force layout, hand-rolled SVG per design.md §8.
-// Nodes sized by chunk count, colored by dept (muted categorical, never risk colors).
-// Edges = shared equipment tags, thickness by count. Hover dims rest, click opens drawer.
+// Hover state is LOCAL (no parent re-render, no sim restarts on mouse move).
+// Nodes colored by connected component; sim settles fast and stops.
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { forceSimulation, forceManyBody, forceCenter, forceLink, forceCollide, forceX, forceY } from "d3-force";
 
-const DEPT_COLORS = {
-  operations: "#7d8aa5",
-  engineering: "#a89c8c",
-  safety: "#8f7fb8",
-};
-function deptColor(dept) {
-  return DEPT_COLORS[(dept || "").toLowerCase()] || "#7d8aa5";
-}
-
-export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSelect, pinned, onPin }) {
+export function GraphCanvas({ nodes, edges, selectedId, colorMap, onSelect, pinned, onPin }) {
   const ref = useRef(null);
   const [pos, setPos] = useState({});
   const [size, setSize] = useState({ w: 800, h: 520 });
+  const [hoverId, setHoverId] = useState(null);
 
   const simNodes = useMemo(() => nodes.map((n) => ({ ...n, r: 14 + Math.min(22, (n.chunks || 0) * 4) })), [nodes]);
   const simLinks = useMemo(() => edges.map((e) => ({ source: e.a, target: e.b, weight: e.weight, tags: e.tags })), [edges]);
@@ -25,14 +17,19 @@ export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSele
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const wb = new ResizeObserver(() => setSize({ w: el.clientWidth || 800, h: el.clientHeight || 520 }));
+    const measure = () => setSize((s) => {
+      const w = el.clientWidth || 800, h = el.clientHeight || 520;
+      return (Math.abs(w - s.w) < 2 && Math.abs(h - s.h) < 2) ? s : { w, h };
+    });
+    measure();
+    const t1 = setTimeout(measure, 300);
+    const wb = new ResizeObserver(measure);
     wb.observe(el);
-    return () => wb.disconnect();
+    return () => { clearTimeout(t1); wb.disconnect(); };
   }, []);
 
   useEffect(() => {
     if (!simNodes.length) return;
-    // deterministic circle start so first paint isn't chaos
     simNodes.forEach((n, i) => {
       if (n.x == null || n.y == null) {
         const a = (2 * Math.PI * i) / Math.max(1, simNodes.length);
@@ -42,14 +39,13 @@ export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSele
     });
     const sim = forceSimulation(simNodes)
       .velocityDecay(0.35)
-      .alphaMin(0.05)
+      .alphaMin(0.12)
       .force("charge", forceManyBody().strength(-90))
       .force("center", forceCenter(size.w / 2, size.h / 2))
       .force("gx", forceX(size.w / 2).strength(0.08))
       .force("gy", forceY(size.h / 2).strength(0.08))
       .force("collide", forceCollide().radius((d) => d.r + 18))
       .force("link", forceLink(simLinks).id((d) => d.id).distance(90).strength(0.5));
-    // respect pinned positions
     simNodes.forEach((n) => {
       if (pinned[n.id]) { n.fx = pinned[n.id].x; n.fy = pinned[n.id].y; }
       else { n.fx = null; n.fy = null; }
@@ -59,10 +55,10 @@ export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSele
       simNodes.forEach((n) => { p[n.id] = { x: n.x, y: n.y }; });
       setPos({ ...p });
     });
-    const stop = setTimeout(() => sim.stop(), 1800);
+    const stop = setTimeout(() => sim.stop(), 1500);
     return () => { clearTimeout(stop); sim.stop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simNodes, simLinks, size.w, size.h]);
+  }, [simNodes, simLinks]);
 
   const draggedRef = useRef(false);
   function dragNode(id, startEv, svg) {
@@ -76,7 +72,7 @@ export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSele
       if (node) { node.fx = x; node.fy = y; }
       setPos((p) => ({ ...p, [id]: { x, y } }));
     };
-    const up = (ev) => {
+    const up = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
       if (node) onPin(id, node.fx, node.fy);
@@ -102,7 +98,7 @@ export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSele
 
   return (
     <div ref={ref} className="kb-canvas">
-      <svg width="100%" height="100%" role="img" aria-label="Knowledge graph">
+      <svg width={size.w} height={size.h} role="img" aria-label="Knowledge graph" style={{ display: "block" }}>
         {simLinks.map((l, i) => {
           const a = typeof l.source === "object" ? l.source.id : l.source;
           const b = typeof l.target === "object" ? l.target.id : l.target;
@@ -124,17 +120,18 @@ export function GraphCanvas({ nodes, edges, selectedId, hoverId, onHover, onSele
           if (!p) return null;
           const dim = hoverId && hoverId !== n.id && !linkById[`${hoverId}-${n.id}`];
           const isSel = selectedId === n.id;
+          const col = (colorMap && colorMap[n.id]) || "#7d8aa5";
           return (
             <g key={n.id} className={`kb-node${dim ? " dim" : ""}`}
               transform={`translate(${p.x},${p.y})`}
-              onMouseEnter={() => onHover(n.id)} onMouseLeave={() => onHover(null)}
+              onMouseEnter={() => setHoverId(n.id)} onMouseLeave={() => setHoverId(null)}
               onClick={() => { if (!draggedRef.current) onSelect(n); draggedRef.current = false; }}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 dragNode(n.id, e, e.currentTarget.ownerSVGElement);
               }}>
               <title>{n.title} — {n.dept} · {n.chunks} chunks</title>
-              <circle r={n.r} fill="none" stroke={deptColor(n.dept)} strokeWidth={isSel ? 2.5 : 1.5} opacity={dim ? 0.35 : 1} />
+              <circle r={n.r} fill="none" stroke={col} strokeWidth={isSel ? 2.5 : 1.5} opacity={dim ? 0.35 : 1} />
               {pinned[n.id] && <circle r={2.5} fill="var(--muted)" cx={n.r - 2} cy={-n.r + 2} />}
               <text y={n.r + 15} textAnchor="middle">{n.title}</text>
             </g>

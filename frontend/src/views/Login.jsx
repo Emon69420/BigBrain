@@ -2,6 +2,7 @@
 import { useState } from "react";
 import VortexBackground from "../components/VortexBackground.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
+import BrainMark from "../components/BrainMark.jsx";
 
 export function Login({ onLogin, onRegister }){
   const [mode,setMode]=useState("login");
@@ -18,7 +19,7 @@ export function Login({ onLogin, onRegister }){
     <div style={{position:"relative", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden"}}>
       <VortexBackground opacity={0.28}/>
       <div style={{position:"relative", width:360, textAlign:"center"}}>
-        <div style={{fontSize:13, color:"var(--muted)"}}>b ◆ seal</div>
+        <div style={{display:"flex", justifyContent:"center", color:"var(--ink)"}}><BrainMark size={34}/></div>
         <h1 style={{fontSize:30, margin:"14px 0 6px"}}>Sovereign Industrial AI Workbench</h1>
         <p className="muted" style={{margin:"0 0 22px"}}>Your documents. Your GPU. No exit.</p>
         <form onSubmit={submit} style={{display:"grid", gap:10, textAlign:"left"}}>

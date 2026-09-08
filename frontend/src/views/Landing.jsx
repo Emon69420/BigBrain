@@ -1,12 +1,13 @@
 // Landing per design.md §6 — sovereignty pitch, vortex hero, 3-col grid, deployment, proof.
 import VortexBackground from "../components/VortexBackground.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
+import BrainMark from "../components/BrainMark.jsx";
 
 export function Landing({ onEnter }){
   return (
     <div>
       <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"18px 28px", borderBottom:"1px solid var(--line)"}}>
-        <div style={{display:"flex", alignItems:"center", gap:10}}><span className="brand-mark">◉</span><strong>BigBrain</strong></div>
+        <div style={{display:"flex", alignItems:"center", gap:10}}><span className="brand-mark"><BrainMark size={18}/></span><strong>BigBrain</strong></div>
         <div style={{display:"flex", gap:22, color:"var(--muted)", fontSize:14}}>
           <span>Product</span><span>Security</span><span>Docs</span>
           <a onClick={onEnter} style={{cursor:"pointer", color:"var(--ink)"}}>Login</a>

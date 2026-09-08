@@ -11,6 +11,7 @@ import { KBView } from "./views/KB.jsx";
 import { ToolsView } from "./views/Tools.jsx";
 import { FileUpload, TextIngest } from "./components/FileUpload.jsx";
 import { useIngest } from "./hooks/useIngest.js";
+import BrainMark from "./components/BrainMark.jsx";
 
 const RAIL_ICONS = {
   chat: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>,
@@ -28,7 +29,7 @@ function IconRail({ view, setView }){
   const soon=[["security","Security (soon)"],["audit","Audit (soon)"]];
   return (
     <div className="icon-rail" role="navigation" aria-label="Primary">
-      <div className="rail-mark" title="BigBrain">BB</div>
+      <div className="rail-mark" title="BigBrain"><BrainMark size={22}/></div>
       {items.map(([k,label])=> (
         <div key={k} className={`rail-icon ${view===k?"active":""}`} title={label} aria-label={label} role="button" tabIndex={0}
           onClick={()=>setView(k)} onKeyDown={e=>{ if(e.key==="Enter") setView(k); }}>{RAIL_ICONS[k]}</div>
@@ -51,7 +52,7 @@ function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout })
   }
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand"><span className="brand-mark">BB</span> BigBrain</div>
+      <div className="sidebar-brand"><span className="brand-mark"><BrainMark size={18}/></span> BigBrain</div>
       <div style={{padding:"10px 12px 0"}}>
         <button className="btn" style={{width:"100%"}} onClick={onNew}>+ New chat</button>
       </div>
