@@ -108,11 +108,21 @@ def status(org_id):
         {"at": str(r[0]), "kind": r[1], "host": r[2], "verdict": r[3], "source": r[4]}
         for r in cur.fetchall()
     ]
+    cur.execute(
+        """SELECT host, COUNT(*), MAX(created_at) FROM egress_events
+           WHERE org_id=%s AND verdict='blocked' GROUP BY host ORDER BY 2 DESC;""",
+        (org_id,),
+    )
+    blocked_hosts = [
+        {"host": r[0], "attempts": r[1], "last_seen": str(r[2])}
+        for r in cur.fetchall()
+    ]
     cur.close()
     conn.close()
     return {
         "model": by_kind.get("model", 0),
         "database": by_kind.get("database", 0),
         "blocked": blocked,
+        "blocked_hosts": blocked_hosts,
         "recent": recent,
     }

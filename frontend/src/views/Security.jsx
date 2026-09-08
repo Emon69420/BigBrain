@@ -41,6 +41,38 @@ export function SecurityView(){
         {msg && <p className="small muted" style={{marginBottom:0}}>{msg}</p>}
       </div>
       <div style={{marginTop:14}}>
+        <h3>Blocked endpoints</h3>
+        <p className="small muted" style={{margin:"0 0 8px"}}>Policy is deny-by-default: anything not allowlisted is denied automatically. These hosts actually tried and were stopped.</p>
+        {(st.blocked_hosts||[]).length ? (
+          <table className="table">
+            <thead><tr><th>Destination</th><th>Attempts</th><th>Last seen</th></tr></thead>
+            <tbody>
+              {(st.blocked_hosts||[]).map((b,i)=>(
+                <tr key={i}>
+                  <td className="mono small" style={{color:"var(--danger)"}}>{b.host}</td>
+                  <td>{b.attempts}</td>
+                  <td className="small muted">{b.last_seen}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="card small muted">No blocked attempts yet — run Simulate rogue egress above.</div>
+        )}
+      </div>
+      <div style={{marginTop:14}}>
+        <h3>Allowed</h3>
+        {allow ? (
+          <div className="card small">
+            <div>Local: <span className="mono">{allow.local.join(", ")}</span></div>
+            <div style={{marginTop:4}}>Model API: <span className="mono">{allow.model_api}</span></div>
+            <div className="muted" style={{marginTop:4}}>{allow.policy}</div>
+          </div>
+        ) : (
+          <div className="card small muted">Loading allowlist…</div>
+        )}
+      </div>
+      <div style={{marginTop:14}}>
         <h3>Audit trail</h3>
         <table className="table">
           <thead><tr><th>Time</th><th>Destination</th><th>Verdict</th><th>Source</th></tr></thead>
@@ -57,7 +89,6 @@ export function SecurityView(){
           </tbody>
         </table>
       </div>
-      {allow && <p className="small muted" style={{marginTop:12}}>Allowlist: local ({allow.local.join(", ")}) · model API ({allow.model_api}) · {allow.policy}</p>}
     </div>
   );
 }
