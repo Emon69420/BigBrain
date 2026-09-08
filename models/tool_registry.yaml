@@ -60,3 +60,29 @@ tools:
   version: 1
   uses: 1
   created_by: auto
+- name: compute_kinetic_energy_from
+  path: backend/tools/custom/compute_kinetic_energy_from.py
+  desc: Kinetic energy calculator - computes kinetic energy from mass and velocity
+  full_desc: 'Kinetic energy calculator - computes kinetic energy from mass and velocity
+
+    Args: mass_kg (float), velocity_m_per_s (float)
+
+    Returns: kinetic_energy_joules (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto
+- name: convert_total_volume_in
+  path: backend/tools/custom/convert_total_volume_in.py
+  desc: Oil barrel converter - converts volume in litres to number of standard oil
+    barrels and provides barrel volume
+  full_desc: 'Oil barrel converter - converts volume in litres to number of standard
+    oil barrels and provides barrel volume
+
+    Args: volume_L (float)
+
+    Returns: barrels (float), barrel_volume_L (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto

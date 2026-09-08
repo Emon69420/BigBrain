@@ -82,3 +82,26 @@ def build_rag_prompt(query, evidence):
         evidence_block=format_evidence(evidence),
         query=query,
     )
+
+
+REDTEAM_TEMPLATE = """You are the Red Team for BigBrain — an adversarial reviewer, not a helper. Your job is to attack the drafted answer below and find why it could be wrong. Be strict: a missed flaw is worse than a false alarm.
+
+Drafted answer:
+{answer}
+
+Retrieved evidence:
+{evidence_block}
+
+Tool execution record:
+{tool_block}
+
+Check, in order:
+1. Unsupported claims: every factual sentence must trace to the evidence or the tool record. Quote the claim and state what is missing.
+2. Stale or superseded evidence: dates, versions, or intervals that look outdated or contradicted between sources.
+3. Unverified assumptions: unit conversions, physical constants, or premises the answer relies on without stating (e.g. g=9.8 assumed, kW vs kWh confused, missing arg defaults).
+4. Number mismatch: any number in the answer that does not appear in the tool output or evidence.
+
+Respond strictly as JSON: {{"verdict": "pass|flag|fail", "findings": ["..."]}}.
+- pass: nothing material found.
+- flag: concerns worth showing a human, answer still usable.
+- fail: a number is fabricated, a citation is dangling, or a core claim contradicts the evidence."""

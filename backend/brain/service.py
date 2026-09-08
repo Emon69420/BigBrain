@@ -87,6 +87,8 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
     tool_used = None
     tool_trace = []
     judge_out = None
+    decision = "general"
+    redteam_out = {"verdict": "pass", "findings": []}
     if retrieve:
         try:
             from data.service import hybrid_search
@@ -313,6 +315,29 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
         log_llm_call(request_id, org_id, user_dept, task, model_key, model_id,
                      prompt, None, None, latency, error=err)
         raise
+    # --- red team: adversarial review of the drafted answer, then flag-and-deliver ---
+    redteam_out = {"verdict": "pass", "findings": []}
+    try:
+        from brain.redteam import review as redteam_review
+        redteam_out = redteam_review(answer, evidence, tool_used, decision, org_id, question=text)
+        tool_trace.append(f"redteam: {redteam_out['verdict']} ({len(redteam_out['findings'])} findings)")
+        if redteam_out["verdict"] == "fail":
+            # ONE bounded regenerate with findings injected, then deliver flagged whatever results
+            try:
+                fix_prompt = (prompt + "\n\nRED TEAM REJECTED your draft for these reasons:\n- "
+                              + "\n- ".join(redteam_out["findings"][:6])
+                              + "\nFix every finding or explicitly mark the claim unverified. Answer again:")
+                t1 = timed()
+                answer2, usage2 = _brain.chat_full(model_key, [{"role": "user", "content": fix_prompt}])
+                log_llm_call(request_id, org_id, user_dept, task, model_key, model_id,
+                             fix_prompt, answer2, usage2, elapsed_ms(t1))
+                answer = answer2
+                tool_trace.append("redteam: regenerated once with findings injected")
+            except Exception as e2:
+                tool_trace.append(f"redteam regenerate failed: {e2} — delivering flagged original")
+    except Exception as e3:
+        tool_trace.append(f"redteam harness failed open: {e3}")
+        redteam_out = {"verdict": "flag", "findings": [f"red-team unavailable: {e3}"]}
     out = {
         "task": task, "model": model_key, "model_id": model_id,
         "answer": answer, "mode": "harness-groq+localpg",
@@ -323,6 +348,7 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
         "tool_used": tool_used,
         "tool_trace": tool_trace,
         "judge": judge_out,
+        "redteam": redteam_out,
     }
     return out
 
