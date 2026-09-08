@@ -1,7 +1,8 @@
-"""Doc endpoints — thin routes, logic lives in data/service.py."""
+"""Doc endpoints — thin routes, logic lives in data/service.py + data/graph.py."""
 from flask import Blueprint, g, jsonify, request, session
 from auth.service import is_member as _is_member
 from data.service import ingest_doc, list_docs, delete_doc
+from data.graph import get_graph
 
 docs_bp = Blueprint("docs", __name__)
 
@@ -56,3 +57,12 @@ def remove(doc_id):
     if not delete_doc(doc_id, res):
         return jsonify({"error": "not found"}), 404
     return jsonify({"ok": True})
+
+
+@docs_bp.get("/graph")
+def graph():
+    ok, res, _ = _require_org()
+    if not ok:
+        return res
+    dept = request.args.get("dept", "operations")
+    return jsonify({"org_id": res, **get_graph(res, dept)})

@@ -12,22 +12,38 @@ import { ToolsView } from "./views/Tools.jsx";
 import { FileUpload, TextIngest } from "./components/FileUpload.jsx";
 import { useIngest } from "./hooks/useIngest.js";
 
-function Sidebar({ view, setView, user, onLogout, orgId }){
+const RAIL_ICONS = {
+  chat: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>,
+  kb: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7l7 1M7 8.5L11 16M16.5 10L13.5 16"/></svg>,
+  tools: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4L14 13l-3-3 3.7-3.7z"/></svg>,
+  ingest: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg>,
+  security: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>,
+  audit: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>,
+};
+
+function Sidebar({ view, setView, user, onLogout }){
   const items=[
     ["chat","Chat"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],
   ];
+  const soon=[["security","Security"],["audit","Audit"]];
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand"><span className="brand-mark">BB</span> BigBrain <span className="badge" style={{marginLeft:"auto"}}>{orgId}</span></div>
-      <nav className="sidebar-nav">
-        {items.map(([k,label])=> <div key={k} className={`nav-item ${view===k?"active":""}`} onClick={()=>setView(k)}>{label}</div>)}
-      </nav>
-      <div className="nav-foot">
-        <div style={{fontWeight:700, color:"var(--ink)"}}>{user?.name || user?.email || "—"}</div>
-        <div style={{fontSize:12}}>{user?.email || ""}</div>
-        <button className="btn btn-ghost" style={{marginTop:8, width:"100%"}} onClick={onLogout}>Sign out</button>
+    <>
+      <div className="icon-rail" aria-hidden="true">
+        {items.map(([k])=> <div key={k} className={`rail-icon ${view===k?"active":""}`}>{RAIL_ICONS[k]}</div>)}
       </div>
-    </aside>
+      <aside className="sidebar">
+        <div className="sidebar-brand"><span className="brand-mark">BB</span> BigBrain</div>
+        <nav className="sidebar-nav">
+          {items.map(([k,label])=> <div key={k} className={`nav-item ${view===k?"active":""}`} onClick={()=>setView(k)}>{label}</div>)}
+          {soon.map(([k,label])=> <div key={k} className="nav-item soon" title="Not built yet — lands with the safety layer">{label}<span className="soon-tag">soon</span></div>)}
+        </nav>
+        <div className="nav-foot">
+          <div style={{fontWeight:700, color:"var(--ink)"}}>{user?.name || user?.email || "—"}</div>
+          <div style={{fontSize:12}}>{user?.email || ""}</div>
+          <button className="btn btn-ghost" style={{marginTop:8, paddingLeft:0}} onClick={onLogout}>Sign out</button>
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -84,18 +100,29 @@ function AppShell({ user, orgs, onLogout }){
     setHighlight(msg?.evidence?.[idx]?.doc_id ?? null);
   }
 
+  const lastAssistant=[...messages].reverse().find(m=>m.role==="assistant");
+  const groundedState = !lastAssistant ? null
+    : (lastAssistant.tool_used && lastAssistant.tool_used.error) ? "failed"
+    : (lastAssistant.tool_used && lastAssistant.tool_used.result) ? "verified"
+    : (lastAssistant.general_knowledge || (lastAssistant.evidence||[]).length===0) ? "unverified" : "grounded";
   return (
     <div className="shell">
-      <Sidebar view={view} setView={setView} user={user} onLogout={onLogout} orgId={orgId}/>
+      <Sidebar view={view} setView={setView} user={user} onLogout={onLogout}/>
       <div>
         <div className="topbar">
           <div style={{display:"flex", gap:8, alignItems:"center"}}>
-            <span className="eyebrow">Workspace</span>
-            <select className="input" style={{width:"auto", padding:"6px 10px"}} value={orgId} onChange={e=>pickOrg(e.target.value)}>
+            <span className="brand-mark" style={{width:24,height:24,fontSize:11}}>BB</span>
+            <strong>BigBrain</strong>
+            <select className="input" style={{width:"auto", padding:"6px 10px"}} value={orgId} onChange={e=>pickOrg(e.target.value)} aria-label="Workspace">
               {orgs.map(o=> <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
             </select>
+            <span className="eyebrow">Workspace</span>
           </div>
-          <span className="badge"><span className="badge-dot"/> grounded RAG</span>
+          {groundedState==="grounded" && <span className="badge"><span className="badge-dot low"/>grounded</span>}
+          {groundedState==="verified" && <span className="badge"><span className="badge-dot low"/>verified</span>}
+          {groundedState==="unverified" && <span className="badge"><span className="badge-dot" style={{background:"var(--st-unverified)"}}/>unverified</span>}
+          {groundedState==="failed" && <span className="badge"><span className="badge-dot critical"/>failed</span>}
+          {groundedState===null && <span className="badge"><span className="badge-dot"/>idle</span>}
         </div>
         <div className="content">
           {view==="chat" && (

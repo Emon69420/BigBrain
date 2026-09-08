@@ -28,6 +28,7 @@ export async function runCode(code){ return post("/tools/run",{code}); }
 export async function ingestDoc({title,content,dept="operations",docClass="open"}){ return post("/docs",{title,content,dept,class:docClass}); }
 export async function listDocs(){ return get("/docs"); }
 export async function deleteDoc(id){ const r=await fetch(`${BASE}/docs/${id}`,{method:"DELETE",headers:headers(),...withCreds()}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||`Delete failed`); return d; }
+export async function getGraph(){ return get("/graph"); }
 // auth
 export async function register(email,name,password){ return post("/auth/register",{email,name,password}); }
 export async function login(email,password){ return post("/auth/login",{email,password}); }

@@ -1,5 +1,7 @@
-// Perplexity thread: query header → sources + answer with inline citations → follow-up.
-import { SearchBox, SourcesPanel, PhaseIndicator, SourceCard } from "../components/SearchPerplexity.jsx";
+// Chat per design.md §7: hairline turns, orb model badge, Task List Card,
+// Reasoning disclosure (collapsed), Evidence drawer, hairline input bar.
+import { SearchBox, SourcesPanel, PhaseIndicator } from "../components/SearchPerplexity.jsx";
+import HairlineButton from "../components/HairlineButton.jsx";
 
 function renderWithCites(text, onCite){
   if(!text) return null;
@@ -11,41 +13,118 @@ function renderWithCites(text, onCite){
   });
 }
 
+function ModelOrb({ model_key }){
+  const k=(model_key||"").toLowerCase();
+  const cls = k.includes("vlm")||k.includes("vision") ? "model-orb vlm" : (k.includes("llm")||k.includes("sarvam")||k.includes("120b")) ? "model-orb llm" : "model-orb";
+  return <span className={cls} title={model_key||"model"}/>;
+}
+
+// Task List Card derived ONLY from real turn data (phase, evidence, tool state).
+// Red Team + approval rows render pending — those backends are not built yet.
+function TaskListCard({ msg, phase, query }){
+  const steps=[];
+  const evLen=(msg?.evidence||[]).length;
+  if(phase==="searching"||phase==="reading"){
+    steps.push({label:"Retrieve evidence", state:"active"});
+  } else if(evLen>0){
+    steps.push({label:`Retrieve evidence`, state:"done", meta:`${evLen} sources`});
+  } else if(msg){
+    steps.push({label:"Retrieve evidence", state:"done", meta:"no match"});
+  }
+  if(phase==="building"){
+    steps.push({label:"Build tool in sandbox", state:"active"});
+  } else if(phase==="running"){
+    steps.push({label:"Run tool", state:"active"});
+  } else if(msg?.tool_used && !msg.tool_used.error){
+    steps.push({label:`Run tool ${msg.tool_used.name}`, state:"done"});
+  } else if(msg?.tool_used && msg.tool_used.error){
+    steps.push({label:"Run tool", state:"blocked", meta:"failed"});
+  }
+  if(phase==="writing"){
+    steps.push({label:"Draft answer", state:"active"});
+  } else if(msg){
+    steps.push({label:"Draft answer", state:"done"});
+  }
+  steps.push({label:"Red Team review", state:"pending"});
+  steps.push({label:"Human approval", state:"pending"});
+  const done=steps.filter(s=>s.state==="done").length;
+  if(!steps.length) return null;
+  return (
+    <div className="task-card">
+      <div className="task-card-head"><span>{query?String(query).slice(0,60):"Working"} </span><span className="muted small">{done}/{steps.length}</span></div>
+      {steps.map((s,i)=>(
+        <div key={i}>
+          <div className={`task-row ${s.state==="pending"?"pending":""}`}>
+            <span className={`t-check ${s.state==="done"?"done":""} ${s.state==="blocked"?"blocked":""}`}>{s.state==="done"?"✓":s.state==="blocked"?"⊗":"○"}</span>
+            <span>{s.label}</span>
+            <span className="t-meta">{s.state==="active"?"in progress":s.meta||(s.state==="blocked"?"blocked":"")}</span>
+          </div>
+          {s.state==="active" && <div className="vortex-underline"/>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReasoningLines({ msg }){
+  const lines=[];
+  if(msg?.judge?.reason) lines.push(msg.judge.reason);
+  for(const t of (msg?.tool_trace||[])){
+    lines.push({text:t, tool:/tool|registry|saved|hit|search|retriev/i.test(t)});
+  }
+  if(!lines.length) lines.push("No recorded steps for this turn.");
+  return (
+    <details className="reasoning">
+      <summary>Reasoning… <span className="chev">▶</span></summary>
+      <div style={{marginTop:6}}>
+        {lines.map((l,i)=> typeof l==="string"
+          ? <div key={i} className="reason-line"><span className="reason-dot"/>{l}</div>
+          : <div key={i} className={`reason-line${l.tool?" toolok":""}`}><span className="reason-dot"/>{l.tool?"✓ ":""}{l.text}</div>)}
+      </div>
+      <div style={{borderTop:"1px solid var(--line)", marginTop:8}}/>
+    </details>
+  );
+}
+
 export function ChatView({ messages, onAsk, loading, onInfo, phase }){
-  // last assistant's evidence for right panel
   const lastAssistant=[...messages].reverse().find(m=>m.role==="assistant");
   const ev=lastAssistant?.evidence||[];
+  const lastUser=[...messages].reverse().find(m=>m.role==="user");
+  const showCard = phase || lastAssistant;
   return (
     <div className="two-col">
       <div>
         {phase && <div style={{marginBottom:10}}><PhaseIndicator phase={phase}/></div>}
+        {showCard && <TaskListCard msg={phase?null:lastAssistant} phase={phase} query={lastUser?.content}/>}
         <div className="chat-log">
           {messages.map(m=>(
             m.role==="user" ? (
-              <div key={m.id} style={{fontSize:18, fontWeight:700, letterSpacing:"-0.01em", marginTop:8}}>{m.content}</div>
+              <div key={m.id} className="chat-turn user">{m.content}</div>
             ) : (
-              <div key={m.id} className="answer">
-                <div style={{whiteSpace:"pre-wrap"}}>{renderWithCites(m.content, (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
+              <div key={m.id} className="chat-turn">
+                <div><ModelOrb model_key={m.model_key}/><span className="badge mono" style={{fontSize:11}}>{m.model_key||"model"}</span></div>
+                <div className="answer" style={{marginTop:8,whiteSpace:"pre-wrap"}}>{renderWithCites(m.content, (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
                 <div className="meta">
-                  {m.model_key && <span className="badge">{m.model_key}</span>}
                   {m.tool_used && m.tool_used.error ? (
-                    <span className="badge" style={{background:"#fef2f2", color:"#dc2626", borderColor:"#fecaca"}}>Tool failed — answer unverified</span>
+                    <span className="badge"><span className="badge-dot critical"/>Tool failed — answer unverified</span>
                   ) : m.tool_used && m.tool_used.result ? (
-                    <span className="badge" style={{background:"var(--accent-soft)", borderColor:"var(--accent)"}}>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
+                    <span className="badge"><span className="badge-dot low"/>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
                   ) : (
-                    <span className="badge" style={m.general_knowledge ? {background:"var(--warning)", color:"#000", borderColor:"#f59e0b"} : {background:"var(--accent-soft)", borderColor:"var(--accent)"}}>
-                      {m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}
-                    </span>
+                    <span className="badge"><span className={`badge-dot ${m.general_knowledge?"":"low"}`} style={m.general_knowledge?{background:"var(--st-unverified)"}:null}/>{m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
                   )}
                   {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
                 </div>
-                {m.tool_trace?.length>0 && <details className="small muted" style={{marginTop:6}}><summary style={{cursor:"pointer"}}>How this was computed</summary><div style={{fontFamily:"var(--mono)", fontSize:11, marginTop:4}}>{m.tool_trace.join(" → ")}</div></details>}
+                <ReasoningLines msg={m}/>
               </div>
             )
           ))}
           {!messages.length && <div className="muted">No messages — ask about your docs. Try: "whats sop" or "What is inspection interval for P-204?"</div>}
         </div>
         <div style={{maxWidth:640, marginTop:18}}>
+          <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:6}}>
+            <span className="badge"><span className="badge-dot"/>auto</span>
+            <span className="small muted">model routed per message</span>
+          </div>
           <SearchBox onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…"/>
         </div>
       </div>
@@ -63,10 +142,10 @@ export function EvidencePanel({ open, onClose, msg, highlightDoc }){
         <strong>Evidence</strong><button className="btn" onClick={onClose}>×</button>
       </div>
       {!msg && <div style={{padding:16, color:"var(--muted)"}}>Select ⓘ on a message.</div>}
-      {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}>No sources — this answer used general knowledge (no matching docs).</div>}
+      {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}><em>No sources — this answer used general knowledge.</em></div>}
       {msg?.evidence?.map((e,i)=>(
-        <div key={i} className="card" style={{margin:12, borderColor: highlightDoc===String(e.doc_id)?"var(--accent)": e.tool ? (e.newly_created?"#7c3aed":"#1e293b") : "var(--line)", background: highlightDoc===String(e.doc_id)?"var(--accent-soft)": e.tool ? (e.newly_created?"#f5f3ff":"#f8fafc") : "var(--panel)"}}>
-          <div style={{fontSize:12, color:"var(--muted)"}}>{e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} {e.title} {e.tool ? <span style={{background:e.newly_created?"#7c3aed":"#1e293b", color:"#fff", padding:"1px 6px", borderRadius:6, fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· dist ${Number(e.distance).toFixed(3)}`)}</div>
+        <div key={i} style={{padding:"12px 16px", borderBottom:"1px solid var(--line)", background: highlightDoc===String(e.doc_id)?"var(--panel)":"transparent"}}>
+          <div className="small" style={{color:"var(--muted)"}}>{e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{e.title}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
           <div style={{marginTop:6, whiteSpace:"pre-wrap", fontSize:14}}>{e.content}</div>
         </div>
       ))}
