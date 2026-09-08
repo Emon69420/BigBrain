@@ -24,9 +24,9 @@ def rewrite(last_msg, history_text=""):
         from brain.groq_provider import GroqBrain
         from config import load_registry
         reg=load_registry(); brain=GroqBrain(reg)
-        # use SLM slot for speed
+        # use LLM slot (120B everywhere)
         msg=[{"role":"system","content":SYSTEM},{"role":"user","content":prompt}]
-        raw,_=brain.chat_full("groq-slm", msg)
+        raw,_=brain.chat_full("groq-llm", msg)
         data=_parse(raw)
         if data and isinstance(data.get("search_queries"), list):
             qs=[q.strip() for q in data["search_queries"] if q and q.strip()][:3]

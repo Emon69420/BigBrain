@@ -31,7 +31,7 @@ def judge(query, evidence, tool_descs, history_text=""):
     req_id = new_request_id()
     t0 = timed()
     try:
-        raw, usage = brain.chat_full("groq-slm", [{"role":"system","content":JUDGE_SYSTEM},{"role":"user","content":user_block}], temperature=0)
+        raw, usage = brain.chat_full("groq-llm", [{"role":"system","content":JUDGE_SYSTEM},{"role":"user","content":user_block}], temperature=0)
         latency = elapsed_ms(t0)
         m = re.search(r"\{.*\}", raw, re.S)
         data = json.loads(m.group(0)) if m else {}
@@ -46,8 +46,13 @@ def judge(query, evidence, tool_descs, history_text=""):
         # self-contradiction repair: reason admits maths but decision says general/docs
         # (negated mentions like "no calculation required" do NOT count)
         reason_l = (data.get("reason","") or "").lower()
-        negated = bool(re.search(r"no (calculation|math|tool)|without (math|calculat)|not (require|need).*?(math|calculat|tool)", reason_l))
+        negated = bool(re.search(r"no (calculation|math|tool)|without .*?(math|calculat|tool)|not (require|need).*?(math|calculat|tool)", reason_l))
         contradicts = decision in ("docs","general") and (not negated) and bool(re.search(r"calculat|physics|equation|numeric|math", reason_l))
+        # reverse repair: reason denies maths but decision demands tools -> force general/docs
+        denies_math = bool(re.search(r"greeting|smalltalk|without .*?(calculat|math)|no (calculat|math)|factual lookup|no math", reason_l))
+        if decision in ("tool_only", "docs_plus_tool") and denies_math:
+            import logging as _lg0; _lg0.getLogger("bigbrain").info("judge reverse-repair: reason denies maths, forcing general/docs")
+            decision = "docs" if evidence else "general"
         if decision in ("docs","general") and ((has_quantity and has_math_words) or contradicts):
             if contradicts:
                 import logging as _lg; _lg.getLogger("bigbrain").info("judge self-contradiction repaired: reason admits maths, forcing tool path")
@@ -62,7 +67,7 @@ def judge(query, evidence, tool_descs, history_text=""):
         # empty tool_task on a tool path -> retry once, then deterministic extract
         if decision in ("tool_only", "docs_plus_tool") and not (tt.get("purpose") or "").strip():
             try:
-                raw2, usage2 = brain.chat_full("groq-slm", [{"role": "system", "content": JUDGE_SYSTEM + "\nYou MUST include tool_task with purpose and inputs. Empty tool_task is forbidden on tool decisions."}, {"role": "user", "content": user_block}], temperature=0)
+                raw2, usage2 = brain.chat_full("groq-llm", [{"role": "system", "content": JUDGE_SYSTEM + "\nYou MUST include tool_task with purpose and inputs. Empty tool_task is forbidden on tool decisions."}, {"role": "user", "content": user_block}], temperature=0)
                 m2 = re.search(r"\{.*\}", raw2, re.S)
                 d2 = json.loads(m2.group(0)) if m2 else {}
                 if isinstance(d2.get("tool_task"), dict) and (d2["tool_task"].get("purpose") or "").strip():
@@ -78,13 +83,13 @@ def judge(query, evidence, tool_descs, history_text=""):
                 import logging as _lg3; _lg3.getLogger("bigbrain").info("judge fallback: deterministic inputs %s", tt["inputs"])
             except Exception:
                 tt = {"purpose": query[:120], "inputs": {}}
-        log_llm_call(req_id, "default", "tool-judge", {"task_type":"tool_judge","complexity":"low"}, "groq-slm", brain.registry.get("groq-slm",{}).get("model_id",""), user_block, raw, usage, latency)
+        log_llm_call(req_id, "default", "tool-judge", {"task_type":"tool_judge","complexity":"low"}, "groq-llm", brain.registry.get("groq-llm",{}).get("model_id",""), user_block, raw, usage, latency)
         import logging; logging.getLogger("bigbrain").info("judge req=%s decision=%s reason=%s task=%s", req_id, decision, data.get("reason","")[:50], str(tt.get("purpose",""))[:40])
         return {"decision":decision, "reason":data.get("reason",""), "tool_task":tt, "raw":raw, "request_id":req_id}
     except Exception as e:
         latency = elapsed_ms(t0)
         try:
-            log_llm_call(req_id, "default", "tool-judge", {"task_type":"tool_judge","complexity":"low"}, "groq-slm", "", user_block, None, None, latency, error=str(e))
+            log_llm_call(req_id, "default", "tool-judge", {"task_type":"tool_judge","complexity":"low"}, "groq-llm", "", user_block, None, None, latency, error=str(e))
         except: pass
         # fail-open: docs if evidence else general
         return {"decision":("docs" if evidence else "general"), "reason":"judge failed open: "+str(e), "tool_task":"", "raw":""}

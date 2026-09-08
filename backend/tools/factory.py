@@ -162,7 +162,7 @@ Return JSON only."""
         from brain.groq_provider import GroqBrain
         reg = load_registry()
         brain = GroqBrain(reg)
-        raw,_ = brain.chat_full("groq-slm", [{"role":"user","content":prompt}])
+        raw,_ = brain.chat_full("groq-llm", [{"role":"user","content":prompt}])
         m=re.search(r"\{.*\}", raw, re.S)
         if not m: return None
         data=json.loads(m.group(0))

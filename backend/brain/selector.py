@@ -29,18 +29,18 @@ def select(task_obj, tool_descs):
     req_id = new_request_id()
     t0 = timed()
     try:
-        raw, usage = brain.chat_full("groq-slm", [{"role":"system","content":prompt},{"role":"user","content":purpose}], temperature=0)
+        raw, usage = brain.chat_full("groq-llm", [{"role":"system","content":prompt},{"role":"user","content":purpose}], temperature=0)
         latency = elapsed_ms(t0)
         m = re.search(r"\{.*\}", raw, re.S)
         data = json.loads(m.group(0)) if m else {}
         verdict = data.get("verdict","none")
         if verdict not in ("sufficient","partial","none"):
             verdict = "none"
-        log_llm_call(req_id, "default", "tool-select", {"task_type":"tool_select","complexity":"low"}, "groq-slm", brain.registry.get("groq-slm",{}).get("model_id",""), prompt, raw, usage, latency)
+        log_llm_call(req_id, "default", "tool-select", {"task_type":"tool_select","complexity":"low"}, "groq-llm", brain.registry.get("groq-llm",{}).get("model_id",""), prompt, raw, usage, latency)
         import logging; logging.getLogger("bigbrain").info("select req=%s verdict=%s selected=%s missing=%s", req_id, verdict, len(data.get("selected",[])), len(data.get("missing",[])))
         return {"verdict":verdict, "selected":data.get("selected",[]), "missing":data.get("missing",[]), "raw":raw}
     except Exception as e:
         latency = elapsed_ms(t0)
-        try: log_llm_call(req_id, "default", "tool-select", {"task_type":"tool_select","complexity":"low"}, "groq-slm", "", prompt, None, None, latency, error=str(e))
+        try: log_llm_call(req_id, "default", "tool-select", {"task_type":"tool_select","complexity":"low"}, "groq-llm", "", prompt, None, None, latency, error=str(e))
         except: pass
         return {"verdict":"none","selected":[],"missing":[{"purpose":purpose,"inputs":inputs}]}

@@ -8,6 +8,57 @@ _registry = load_registry()
 _brain = GroqBrain(_registry)
 
 
+def _resolve_tool_args(entry_name, inputs, text, arg_map=None, tool_trace=None):
+    """Map judge inputs (+query units) onto the tool's exact params. Placeholders pass through. Never invents values."""
+    import inspect
+    import re as _re2
+    from tools.factory import load_tool, map_args_by_unit
+    try:
+        expected = list(inspect.signature(load_tool(entry_name).main).parameters.keys())
+    except Exception:
+        return dict(inputs or {})
+    inputs = inputs or {}
+
+    def _toks(s):
+        return set(_re2.findall(r"[a-z0-9]+", str(s).lower()))
+
+    args = {}
+    for tool_arg, input_key in (arg_map or {}).items():
+        exp_match = next((e for e in expected if e == tool_arg or e.split("_")[0] == tool_arg or tool_arg in e), tool_arg)
+        if isinstance(input_key, str) and input_key.startswith("__from:"):
+            args[exp_match] = input_key
+        elif input_key in inputs:
+            args[exp_match] = inputs[input_key]
+        elif tool_arg in inputs:
+            args[exp_match] = inputs[tool_arg]
+    for exp in expected:
+        if exp not in args:
+            et = _toks(exp)
+            best_k, best_s = None, 0
+            for k, v in inputs.items():
+                if isinstance(v, str) and v.startswith("__from:"):
+                    continue
+                kt = _toks(k)
+                inter = len(et & kt)
+                if inter > best_s:
+                    best_s, best_k = inter, k
+            if best_k and (best_s >= 2 or best_s >= len(et) / 2 or best_s >= len(_toks(best_k)) / 2):
+                args[exp] = inputs[best_k]
+    still = [e for e in expected if e not in args]
+    if still:
+        try:
+            mapped = map_args_by_unit(text, expected)
+            for e in still:
+                if e in mapped:
+                    args[e] = mapped[e]
+                    if tool_trace is not None:
+                        tool_trace.append(f"unit-mapped {e}={mapped[e]}")
+        except Exception as _ue:
+            if tool_trace is not None:
+                tool_trace.append(f"unit-map failed: {_ue}")
+    return args
+
+
 def ask_question(text, user_dept="operations", org_id="default", request_id=None, retrieve=True, history_text=""):
     """Full ask pipeline. Always-on rewriter + RRF + floor + grounded prompt. Logs every call."""
     request_id = request_id or new_request_id()
@@ -82,51 +133,7 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                     entry = next((t for t in _list() if t["name"]==to_run[0].get("tool")), None)
                     if entry:
                         inputs = tool_task_obj.get("inputs", {}) or {}
-                        # always do fuzzy to map inputs like force -> force_N
-                        import inspect
-                        try:
-                            sig = inspect.signature(__import__('tools.factory', fromlist=['load_tool']).load_tool(entry["name"]).main)
-                            expected = list(sig.parameters.keys())
-                        except:
-                            expected = []
-                        args = {}
-                        # try arg_map first
-                        arg_map = to_run[0].get("arg_map", {}) or {}
-                        if arg_map:
-                            for tool_arg, input_key in arg_map.items():
-                                # tool_arg may be without suffix, map to expected via base
-                                exp_match = next((e for e in expected if e == tool_arg or e.split("_")[0] == tool_arg or tool_arg in e), tool_arg)
-                                if input_key in inputs:
-                                    args[exp_match] = inputs[input_key]
-                                elif tool_arg in inputs:
-                                    args[exp_match] = inputs[tool_arg]
-                        # fill missing via token overlap either direction (initial_velocity_m_s <- velocity_m_s)
-                        import re as _re2
-                        def _toks(s):
-                            return set(_re2.findall(r"[a-z0-9]+", str(s).lower()))
-                        for exp in expected:
-                            if exp not in args:
-                                et = _toks(exp)
-                                best_k, best_s = None, 0
-                                for k, v in inputs.items():
-                                    kt = _toks(k)
-                                    inter = len(et & kt)
-                                    if inter > best_s:
-                                        best_s, best_k = inter, k
-                                if best_k and (best_s >= 2 or best_s >= len(et) / 2 or best_s >= len(_toks(best_k)) / 2):
-                                    args[exp] = inputs[best_k]
-                        # unit-aware fill from query numbers for still-missing params
-                        still_missing = [e for e in expected if e not in args]
-                        if still_missing:
-                            try:
-                                from tools.factory import map_args_by_unit as _mapu
-                                mapped = _mapu(text, expected)
-                                for e in still_missing:
-                                    if e in mapped:
-                                        args[e] = mapped[e]
-                                        tool_trace.append(f"unit-mapped {e}={mapped[e]}")
-                            except Exception as _ue:
-                                tool_trace.append(f"unit-map failed: {_ue}")
+                        args = _resolve_tool_args(entry["name"], inputs, text, to_run[0].get("arg_map"), tool_trace)
                         if not args:
                             args = inputs
                         was_hit = True
@@ -170,7 +177,7 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                     # build a step list from selector + built
                     steps = []
                     for s in to_run:
-                        steps.append({"tool": s.get("tool"), "args": {k: tool_task_obj.get("inputs",{}).get(v, v) for k,v in (s.get("arg_map") or {}).items()}})
+                        steps.append({"tool": s.get("tool"), "args": _resolve_tool_args(s.get("tool"), tool_task_obj.get("inputs",{}), text, s.get("arg_map"), tool_trace)})
                     # append built as final steps if any
                     for b in built:
                         steps.append({"tool": b["name"], "args": tool_task_obj.get("inputs",{})})

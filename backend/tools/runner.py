@@ -27,20 +27,29 @@ def run_python(code, timeout=10):
 
 
 def run_tool(name, args=None):
-    """Run a persisted tool by name via its def main. args: dict/list or single value."""
+    """Run a persisted tool by name via its def main. Extra kwargs not in signature are dropped (logged)."""
     from tools.factory import load_tool, bump_uses
     mod = load_tool(name)
     if not hasattr(mod, "main"):
         return {"ok": False, "error": f"tool {name} has no def main"}
     try:
-        import io, contextlib
+        import io, contextlib, inspect
+        try:
+            sig = inspect.signature(mod.main)
+            params = sig.parameters
+            has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+        except Exception:
+            params, has_var_kw = {}, True
         buf = io.StringIO()
         a = args
-        # normalize args for main
+        dropped = []
         with contextlib.redirect_stdout(buf):
             if a is None:
                 res = mod.main()
             elif isinstance(a, dict):
+                if not has_var_kw:
+                    dropped = [k for k in a if k not in params]
+                    a = {k: v for k, v in a.items() if k in params}
                 res = mod.main(**a)
             elif isinstance(a, list):
                 res = mod.main(*a)
@@ -52,8 +61,11 @@ def run_tool(name, args=None):
         # provenance: a tool that yields nothing (None + empty print) proves nothing
         if res is None and (not out or out == "None"):
             return {"ok": False, "error": f"tool {name} returned no result — untrusted"}
+        if dropped:
+            import logging as _lg
+            _lg.getLogger("bigbrain").info("run_tool %s dropped unexpected args %s", name, dropped)
         bump_uses(name)
-        return {"ok": True, "stdout": out, "result": res}
+        return {"ok": True, "stdout": out, "result": res, "dropped": dropped or None}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

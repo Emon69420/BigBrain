@@ -104,7 +104,7 @@ tools:
     Returns: max_height_m (float)'
   status: unverified
   version: 1
-  uses: 4
+  uses: 6
   created_by: auto
 - name: compute_percent_battery_left
   path: backend/tools/custom/compute_percent_battery_left.py
@@ -144,7 +144,7 @@ tools:
     Returns: kinetic_energy_joules (float)'
   status: unverified
   version: 1
-  uses: 4
+  uses: 5
   created_by: auto
 - name: compute_kwh_consumed_and
   path: backend/tools/custom/compute_kwh_consumed_and.py
@@ -168,6 +168,33 @@ tools:
     Args: initial_velocity (float), initial_height (float), gravity (float)
 
     Returns: time_seconds (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto
+- name: compute_final_amount_and
+  path: backend/tools/custom/compute_final_amount_and.py
+  desc: Compound interest calculator - computes final amount and total interest earned
+  full_desc: 'Compound interest calculator - computes final amount and total interest
+    earned
+
+    Args: principal (float), annual_rate_percent (float), years (int)
+
+    Returns: final_amount (float), total_interest (float)'
+  status: unverified
+  version: 1
+  uses: 4
+  created_by: auto
+- name: total_time_until_the
+  path: backend/tools/custom/total_time_until_the.py
+  desc: Time to impact calculator - computes total time until a ball hits the ground
+  full_desc: 'Time to impact calculator - computes total time until a ball hits the
+    ground
+
+    Args: initial_speed_m_per_s (float), initial_height_m (float), gravity_m_per_s2
+    (float)
+
+    Returns: total_time_s (float)'
   status: unverified
   version: 1
   uses: 1
