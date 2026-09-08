@@ -127,7 +127,7 @@ function AppShell({ user, orgs, onLogout }){
         await new Promise(r=>setTimeout(r, ans.tool_used.hit ? 300 : 900));
       }
       setPhase("writing");
-      await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id, tool_used:ans.tool_used, tool_trace:ans.tool_trace, general_knowledge:ans.general_knowledge, judge:ans.judge});
+      await api.postMessage(id,{role:"assistant", content:ans.answer, model_key:ans.model, evidence:ans.evidence, request_id:ans.request_id, tool_used:ans.tool_used, tool_trace:ans.tool_trace, general_knowledge:ans.general_knowledge, judge:ans.judge, redteam:ans.redteam});
       await loadMessages(id);
     } finally{ setAskLoading(false); setTimeout(()=>setPhase(null), 800); }
     loadThreads();

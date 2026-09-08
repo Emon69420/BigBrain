@@ -86,6 +86,43 @@ function ReasoningLines({ msg }){
   );
 }
 
+function RedTeamStory({ msg }){
+  const rt = msg?.redteam;
+  if(!rt) return null;
+  const findings = rt.findings || [];
+  if(rt.verdict === "pass" && !findings.length){
+    return <div className="small muted" style={{marginTop:6}}>Red Team: passed clean — delivered directly.</div>;
+  }
+  return (
+    <details className="reasoning" open={rt.verdict === "fail"}>
+      <summary>
+        {rt.verdict === "fail" ? "Red Team: failed" : "Red Team: flagged"}
+        {findings.length ? ` (${findings.length})` : ""} — delivered flagged
+        <span className="chev">▶</span>
+      </summary>
+      <div style={{marginTop:6}}>
+        <div className="small" style={{fontWeight:700}}>What failed</div>
+        {findings.length
+          ? findings.map((f,i)=> <div key={i} className="reason-line"><span className="reason-dot" style={{background:"var(--danger)"}}/>{f}</div>)
+          : <div className="reason-line">No detail recorded.</div>}
+        <div className="small" style={{fontWeight:700, marginTop:8}}>What happened next</div>
+        <div className="reason-line">
+          {rt.regenerated
+            ? "Draft rejected → regenerated once with these findings → delivered flagged (red badge above). Not retried further by design."
+            : "Delivered flagged without regenerate — see trace. Red badge above applies."}
+        </div>
+        {rt.rejected_draft && (
+          <details style={{marginTop:6}}>
+            <summary className="small muted" style={{cursor:"pointer"}}>Rejected draft (first 300 chars)</summary>
+            <div className="small mono" style={{marginTop:4, whiteSpace:"pre-wrap"}}>{rt.rejected_draft}</div>
+          </details>
+        )}
+      </div>
+      <div style={{borderTop:"1px solid var(--line)", marginTop:8}}/>
+    </details>
+  );
+}
+
 export function ChatView({ messages, onAsk, loading, onInfo, phase }){
   const lastAssistant=[...messages].reverse().find(m=>m.role==="assistant");
   const ev=lastAssistant?.evidence||[];
@@ -105,7 +142,9 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
                 <div><ModelOrb model_key={m.model_key}/><span className="badge mono" style={{fontSize:11}}>{m.model_key||"model"}</span></div>
                 <div className="answer" style={{marginTop:8,whiteSpace:"pre-wrap"}}>{renderWithCites(m.content, (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
                 <div className="meta">
-                  {m.tool_used && m.tool_used.error ? (
+                  {(m.redteam && (m.redteam.verdict === "fail" || (m.redteam.verdict === "flag" && (m.redteam.findings||[]).length))) ? (
+                    <span className="badge"><span className="badge-dot critical"/>Red Team {m.redteam.verdict} — answer unverified</span>
+                  ) : m.tool_used && m.tool_used.error ? (
                     <span className="badge"><span className="badge-dot critical"/>Tool failed — answer unverified</span>
                   ) : m.tool_used && m.tool_used.result ? (
                     <span className="badge"><span className="badge-dot low"/>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
@@ -115,6 +154,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
                   {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
                 </div>
                 <ReasoningLines msg={m}/>
+                <RedTeamStory msg={m}/>
               </div>
             )
           ))}

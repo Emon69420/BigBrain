@@ -62,5 +62,5 @@ def post_msg(cid):
     ok, res, uid = _check_org()
     if not ok: return res
     d = request.get_json(force=True, silent=True) or {}
-    mid = add_message(cid, d.get("role", "user"), d.get("content", ""), d.get("model_key"), d.get("evidence"), d.get("request_id"), d.get("tool_used"), d.get("tool_trace"), d.get("judge"))
+    mid = add_message(cid, d.get("role", "user"), d.get("content", ""), d.get("model_key"), d.get("evidence"), d.get("request_id"), d.get("tool_used"), d.get("tool_trace"), d.get("judge"), d.get("redteam"))
     return jsonify({"id": mid}), 201

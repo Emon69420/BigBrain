@@ -32,7 +32,7 @@ def get_messages(conversation_id, org_id, user_id):
         cur.close(); conn.close(); return None
     # handle older DB without new cols
     try:
-        cur.execute("SELECT id, role, content, model_key, evidence, request_id, tool_used, tool_trace, judge, created_at FROM messages WHERE conversation_id=%s ORDER BY id;", (conversation_id,))
+        cur.execute("SELECT id, role, content, model_key, evidence, request_id, tool_used, tool_trace, judge, redteam, created_at FROM messages WHERE conversation_id=%s ORDER BY id;", (conversation_id,))
         rows = cur.fetchall()
         has_extra = True
     except:
@@ -56,7 +56,10 @@ def get_messages(conversation_id, org_id, user_id):
             ju = None
             try: ju = json.loads(r[8]) if r[8] else None
             except: ju = None
-            out.append({"id": r[0], "role": r[1], "content": r[2], "model_key": r[3], "evidence": ev, "request_id": r[5], "tool_used": tu, "tool_trace": tr, "judge": ju, "created_at": str(r[9])})
+            rt = None
+            try: rt = json.loads(r[9]) if r[9] else None
+            except: rt = None
+            out.append({"id": r[0], "role": r[1], "content": r[2], "model_key": r[3], "evidence": ev, "request_id": r[5], "tool_used": tu, "tool_trace": tr, "judge": ju, "redteam": rt, "created_at": str(r[10])})
         else:
             ev = None
             try: ev = json.loads(r[4]) if r[4] else []
@@ -65,15 +68,16 @@ def get_messages(conversation_id, org_id, user_id):
     return out
 
 
-def add_message(conversation_id, role, content, model_key=None, evidence=None, request_id=None, tool_used=None, tool_trace=None, judge=None):
+def add_message(conversation_id, role, content, model_key=None, evidence=None, request_id=None, tool_used=None, tool_trace=None, judge=None, redteam=None):
     conn = get_conn(); cur = conn.cursor()
     ev = json.dumps(evidence or [])
     tu = json.dumps(tool_used) if tool_used is not None else None
     tr = json.dumps(tool_trace or [])
     ju = json.dumps(judge) if judge is not None else None
+    rt = json.dumps(redteam) if redteam is not None else None
     try:
-        cur.execute("INSERT INTO messages (conversation_id, role, content, model_key, evidence, request_id, tool_used, tool_trace, judge) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id;",
-                    (conversation_id, role, content, model_key, ev, request_id, tu, tr, ju))
+        cur.execute("INSERT INTO messages (conversation_id, role, content, model_key, evidence, request_id, tool_used, tool_trace, judge, redteam) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id;",
+                    (conversation_id, role, content, model_key, ev, request_id, tu, tr, ju, rt))
     except:
         conn.rollback()
         cur.execute("INSERT INTO messages (conversation_id, role, content, model_key, evidence, request_id) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id;",
