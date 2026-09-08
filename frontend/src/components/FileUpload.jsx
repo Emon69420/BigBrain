@@ -8,8 +8,8 @@ export function FileUpload({ onFile, uploading }) {
   return (
     <label className="ingest-drop" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, cursor:"pointer", opacity: uploading? .6:1 }}>
       <input type="file" accept=".txt,.md,.csv" onChange={handle} disabled={uploading} hidden />
-      <span style={{width:36,height:36,borderRadius:999,background:"#08090C",color:"#fff",display:"grid",placeItems:"center",fontSize:16}}>↑</span>
-      <span style={{fontSize:13,fontWeight:650,color:"var(--ink-dark)"}}>{uploading ? "Uploading..." : "Click to upload .txt / .md / .csv"}</span>
+      <span style={{width:36,height:36,borderRadius:999,background:"#fff",color:"#08090C",display:"grid",placeItems:"center",fontSize:16}}>↑</span>
+      <span style={{fontSize:13,fontWeight:650,color:"#fff"}}>{uploading ? "Uploading..." : "Click to upload .txt / .md / .csv"}</span>
       <span style={{fontSize:11,color:"#9AA0B0"}}>Drag & drop or browse · only .txt/.md/.csv</span>
     </label>
   );
