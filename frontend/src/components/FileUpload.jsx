@@ -26,10 +26,10 @@ export function TextIngest({ onIngest, uploading }) {
     e.target.reset();
   }
   return (
-    <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 520 }}>
-      <input className="input" name="title" placeholder="Title (e.g. SOP-17)" style={{background:"#fff"}} />
-      <textarea className="textarea" name="content" rows={4} placeholder="Paste document text here..." style={{background:"#fff", minHeight:110}} />
-      <button className="btn" style={{background:"#08090C", color:"#fff", borderColor:"#08090C", borderRadius:999, padding:"10px 16px", fontWeight:700, alignSelf:"flex-start"}} disabled={uploading}>{uploading ? "Ingesting..." : "Ingest text →"}</button>
+    <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10, width:"100%" }}>
+      <input className="input" name="title" placeholder="Title (e.g. SOP-17)" style={{background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)"}} />
+      <textarea className="textarea" name="content" rows={5} placeholder="Paste document text here..." style={{background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)", minHeight:140}} />
+      <button className="btn" style={{background:"linear-gradient(135deg,#6366F1,#7C3AED)", color:"#fff", borderColor:"rgba(99,102,241,.5)", borderRadius:999, padding:"10px 16px", fontWeight:700, alignSelf:"flex-start", boxShadow:"0 4px 16px rgba(99,102,241,.35)"}} disabled={uploading}>{uploading ? "Ingesting..." : "Ingest text →"}</button>
     </form>
   );
 }
