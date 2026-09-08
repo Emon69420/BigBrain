@@ -5,40 +5,36 @@ import { SearchBox, PhaseIndicator } from "../components/SearchPerplexity.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
 import * as api from "../services/api.js";
 
-function DecisionDNA({ msg }){
-  const [dna, setDna] = useState(null);
-  const [err, setErr] = useState("");
-  if(msg?.role !== "assistant" || !msg?.request_id) return null;
-  async function load(e){
-    if(e.target.open && !dna && !err){
-      try{ setDna(await api.getDecisionByRequest(msg.request_id)); }
-      catch(ex){ setErr(ex.message); }
-    }
-  }
+function DnaBody({ dna, err }){
   const evCount = Array.isArray(dna?.evidence) ? dna.evidence.length : 0;
   const toolName = dna?.tool_used?.name || null;
   const rt = dna?.redteam || null;
   return (
-    <details className="reasoning" onToggle={load}>
-      <summary>Why this answer? <span className="chev">▶</span></summary>
-      <div style={{marginTop:6}}>
-        {!dna && !err && <div className="reason-line">Opens the persisted Decision DNA record.</div>}
-        {err && <div className="reason-line">Could not load record: {err}</div>}
-        {dna && (<>
-          <div className="reason-line"><span className="mono">{dna.id}</span><span>&nbsp;· {dna.task_type || "answer"} · {dna.model_key || "model"}</span></div>
-          <div className="reason-line">Evidence: {evCount} chunk{evCount === 1 ? "" : "s"}{toolName ? ` · tool ${toolName}` : ""}</div>
-          <div className="reason-line">Red Team: {rt ? `${rt.verdict}${(rt.findings||[]).length ? ` (${rt.findings.length} findings)` : ""}` : "not recorded"}</div>
-          <div className="reason-line small muted">Asked: {(dna.question || "").slice(0, 140)}</div>
-        </>)}
-      </div>
-      <div style={{borderTop:"1px solid var(--line)", marginTop:8}}/>
-    </details>
+    <div style={{marginTop:6}}>
+      {!dna && !err && <div className="reason-line">Opens the persisted Decision DNA record.</div>}
+      {err && <div className="reason-line">Could not load record: {err}</div>}
+      {dna && (<>
+        <div className="reason-line"><span className="mono">{dna.id}</span><span>&nbsp;· {dna.task_type || "answer"} · {dna.model_key || "model"}</span></div>
+        <div className="reason-line">Evidence: {evCount} chunk{evCount === 1 ? "" : "s"}{toolName ? ` · tool ${toolName}` : ""}</div>
+        <div className="reason-line">Red Team: {rt ? `${rt.verdict}${(rt.findings||[]).length ? ` (${rt.findings.length} findings)` : ""}` : "not recorded"}</div>
+        <div className="reason-line small muted">Asked: {(dna.question || "").slice(0, 140)}</div>
+      </>)}
+    </div>
   );
+}
+
+function normCites(text){
+  // LLMs emit fullwidth brackets too — normalize so links + backend agree.
+  // Built via fromCharCode to keep this file pure ASCII.
+  if(!text) return text;
+  const FW_OPEN = String.fromCharCode(0x3010);
+  const FW_CLOSE = String.fromCharCode(0x3011);
+  return text.split(FW_OPEN).join("[").split(FW_CLOSE).join("]");
 }
 
 function renderWithCites(text, onCite){
   if(!text) return null;
-  const parts=text.split(/(\[doc:\d+\]|\[tool:[^\]]+\])/g);
+  const parts=normCites(text).split(/(\[doc:\d+\]|\[tool:[^\]]+\])/g);
   return parts.map((p,i)=>{
     const m=p.match(/\[(doc|tool):([^\]]+)\]/);
     if(m) return <a key={i} className="cite" onClick={()=>{ const v=m[2]; const num=Number(v); onCite(isNaN(num)?v:num); }}>{p}</a>;
@@ -53,7 +49,7 @@ function ModelOrb({ model_key }){
 }
 
 // Task List Card derived ONLY from real turn data (phase, evidence, tool state).
-// Red Team + approval rows render pending — those backends are not built yet.
+// Red Team row reflects msg.redteam when present; human approval backend not built yet.
 function TaskListCard({ msg, phase, query }){
   const steps=[];
   const evLen=(msg?.evidence||[]).length;
@@ -78,7 +74,15 @@ function TaskListCard({ msg, phase, query }){
   } else if(msg){
     steps.push({label:"Draft answer", state:"done"});
   }
-  steps.push({label:"Red Team review", state:"pending"});
+  if(msg?.redteam?.verdict === "pass"){
+    steps.push({label:"Red Team review", state:"done", meta:"clean"});
+  } else if(msg?.redteam?.verdict === "fail"){
+    steps.push({label:"Red Team review", state:"blocked", meta:"fail"});
+  } else if(msg?.redteam?.verdict){
+    steps.push({label:"Red Team review", state:"done", meta:msg.redteam.verdict});
+  } else {
+    steps.push({label:"Red Team review", state:"pending"});
+  }
   steps.push({label:"Human approval", state:"pending"});
   const done=steps.filter(s=>s.state==="done").length;
   if(!steps.length) return null;
@@ -99,7 +103,7 @@ function TaskListCard({ msg, phase, query }){
   );
 }
 
-function ReasoningLines({ msg }){
+function ReasoningBody({ msg }){
   const lines=[];
   if(msg?.judge?.reason) lines.push(msg.judge.reason);
   for(const t of (msg?.tool_trace||[])){
@@ -107,19 +111,15 @@ function ReasoningLines({ msg }){
   }
   if(!lines.length) lines.push("No recorded steps for this turn.");
   return (
-    <details className="reasoning">
-      <summary>Reasoning… <span className="chev">▶</span></summary>
-      <div style={{marginTop:6}}>
-        {lines.map((l,i)=> typeof l==="string"
-          ? <div key={i} className="reason-line"><span className="reason-dot"/>{l}</div>
-          : <div key={i} className={`reason-line${l.tool?" toolok":""}`}><span className="reason-dot"/>{l.tool?"✓ ":""}{l.text}</div>)}
-      </div>
-      <div style={{borderTop:"1px solid var(--line)", marginTop:8}}/>
-    </details>
+    <div style={{marginTop:6}}>
+      {lines.map((l,i)=> typeof l==="string"
+        ? <div key={i} className="reason-line"><span className="reason-dot"/>{l}</div>
+        : <div key={i} className={`reason-line${l.tool?" toolok":""}`}><span className="reason-dot"/>{l.tool?"✓ ":""}{l.text}</div>)}
+    </div>
   );
 }
 
-function RedTeamStory({ msg }){
+function RedTeamBody({ msg }){
   const rt = msg?.redteam;
   if(!rt) return null;
   const findings = rt.findings || [];
@@ -127,30 +127,57 @@ function RedTeamStory({ msg }){
     return <div className="small muted" style={{marginTop:6}}>Red Team: passed clean — delivered directly.</div>;
   }
   return (
-    <details className="reasoning" open={rt.verdict === "fail"}>
-      <summary>
-        {rt.verdict === "fail" ? "Red Team: failed" : "Red Team: flagged"}
-        {findings.length ? ` (${findings.length})` : ""} — delivered flagged
-        <span className="chev">▶</span>
-      </summary>
-      <div style={{marginTop:6}}>
-        <div className="small" style={{fontWeight:700}}>What failed</div>
-        {findings.length
-          ? findings.map((f,i)=> <div key={i} className="reason-line"><span className="reason-dot" style={{background:"var(--danger)"}}/>{f}</div>)
-          : <div className="reason-line">No detail recorded.</div>}
-        <div className="small" style={{fontWeight:700, marginTop:8}}>What happened next</div>
-        <div className="reason-line">
-          {rt.regenerated
-            ? "Draft rejected → regenerated once with these findings → delivered flagged (red badge above). Not retried further by design."
-            : "Delivered flagged without regenerate — see trace. Red badge above applies."}
-        </div>
-        {rt.rejected_draft && (
-          <details style={{marginTop:6}}>
-            <summary className="small muted" style={{cursor:"pointer"}}>Rejected draft (first 300 chars)</summary>
-            <div className="small mono" style={{marginTop:4, whiteSpace:"pre-wrap"}}>{rt.rejected_draft}</div>
-          </details>
-        )}
+    <div style={{marginTop:6}}>
+      <div className="small" style={{fontWeight:700}}>What failed</div>
+      {findings.length
+        ? findings.map((f,i)=> <div key={i} className="reason-line"><span className="reason-dot" style={{background:"var(--danger)"}}/>{f}</div>)
+        : <div className="reason-line">No detail recorded.</div>}
+      <div className="small" style={{fontWeight:700, marginTop:8}}>What happened next</div>
+      <div className="reason-line">
+        {rt.regenerated
+          ? "Draft rejected → regenerated once with these findings → delivered flagged (red badge above). Not retried further by design."
+          : "Delivered flagged without regenerate — see trace. Red badge above applies."}
       </div>
+      {rt.rejected_draft && (
+        <details style={{marginTop:6}}>
+          <summary className="small muted" style={{cursor:"pointer"}}>Rejected draft (first 300 chars)</summary>
+          <div className="small mono" style={{marginTop:4, whiteSpace:"pre-wrap"}}>{rt.rejected_draft}</div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// One expander per answer: Reasoning + Red Team + Decision record live here.
+// Sections render only when that turn actually has the data. Fail-open on redteam fail.
+function HowComputed({ msg }){
+  const [dna, setDna] = useState(null);
+  const [err, setErr] = useState("");
+  const showDna = msg?.role === "assistant" && !!msg?.request_id;
+  async function load(e){
+    if(e.target.open && showDna && !dna && !err){
+      try{ setDna(await api.getDecisionByRequest(msg.request_id)); }
+      catch(ex){ setErr(ex.message); }
+    }
+  }
+  const rt = msg?.redteam;
+  const hasReason = !!(msg?.judge?.reason || (msg?.tool_trace||[]).length);
+  if(!hasReason && !rt && !showDna) return null;
+  return (
+    <details className="reasoning" open={rt?.verdict === "fail"} onToggle={load}>
+      <summary>How this was computed <span className="chev">▶</span></summary>
+      {hasReason && (<>
+        <div className="small" style={{fontWeight:700, marginTop:6}}>Reasoning</div>
+        <ReasoningBody msg={msg}/>
+      </>)}
+      {rt && (<>
+        <div className="small" style={{fontWeight:700, marginTop:8}}>Red Team</div>
+        <RedTeamBody msg={msg}/>
+      </>)}
+      {showDna && (<>
+        <div className="small" style={{fontWeight:700, marginTop:8}}>Decision record</div>
+        <DnaBody dna={dna} err={err}/>
+      </>)}
       <div style={{borderTop:"1px solid var(--line)", marginTop:8}}/>
     </details>
   );
@@ -186,9 +213,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
                   )}
                   {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
                 </div>
-                <ReasoningLines msg={m}/>
-                <RedTeamStory msg={m}/>
-                <DecisionDNA msg={m}/>
+                <HowComputed msg={m}/>
               </div>
             )
           ))}
