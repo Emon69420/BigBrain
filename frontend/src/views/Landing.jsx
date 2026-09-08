@@ -40,15 +40,15 @@ export function Landing({ onEnter }){
           </div>
           <div style={{display:"flex", gap:18, marginTop:22, flexWrap:"wrap"}}>
             <div style={{display:"flex", gap:8, alignItems:"center"}}>
-              <span style={{width:28,height:28,borderRadius:999,background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",display:"grid",placeItems:"center",fontSize:12}}>🔒</span>
+              <span style={{width:28,height:28,borderRadius:999,background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",display:"grid",placeItems:"center",fontSize:11,fontWeight:700,color:"#A5B4FC",fontFamily:"var(--mono)"}}>01</span>
               <div><div style={{fontSize:12,fontWeight:650,color:"#fff"}}>Private & Secure</div><div style={{fontSize:11,color:"#7C819A"}}>Your data stays local</div></div>
             </div>
             <div style={{display:"flex", gap:8, alignItems:"center"}}>
-              <span style={{width:28,height:28,borderRadius:999,background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",display:"grid",placeItems:"center",fontSize:12}}>⚡</span>
+              <span style={{width:28,height:28,borderRadius:999,background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",display:"grid",placeItems:"center",fontSize:11,fontWeight:700,color:"#A5B4FC",fontFamily:"var(--mono)"}}>02</span>
               <div><div style={{fontSize:12,fontWeight:650,color:"#fff"}}>Built for Industry</div><div style={{fontSize:11,color:"#7C819A"}}>Real workflows</div></div>
             </div>
             <div style={{display:"flex", gap:8, alignItems:"center"}}>
-              <span style={{width:28,height:28,borderRadius:999,background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",display:"grid",placeItems:"center",fontSize:12}}>👥</span>
+              <span style={{width:28,height:28,borderRadius:999,background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.08)",display:"grid",placeItems:"center",fontSize:11,fontWeight:700,color:"#A5B4FC",fontFamily:"var(--mono)"}}>03</span>
               <div><div style={{fontSize:12,fontWeight:650,color:"#fff"}}>Human in the Loop</div><div style={{fontSize:11,color:"#7C819A"}}>Control when it matters</div></div>
             </div>
           </div>
@@ -69,19 +69,19 @@ export function Landing({ onEnter }){
         </div>
         <div style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, padding:"6px 0"}}>
           <div style={{display:"flex", gap:10, alignItems:"center"}}>
-            <span style={{width:34,height:34,borderRadius:999,background:"rgba(255,255,255,.06)",display:"grid",placeItems:"center",fontSize:14,border:"1px solid rgba(255,255,255,.08)"}}>🛡️</span>
+            <span style={{width:34,height:34,borderRadius:999,background:"rgba(255,255,255,.06)",display:"grid",placeItems:"center",fontSize:11,fontWeight:700,color:"#A5B4FC",fontFamily:"var(--mono)",border:"1px solid rgba(255,255,255,.08)"}}>01</span>
             <div><div style={{fontWeight:700, fontSize:13, color:"#fff"}}>100%</div><div style={{fontSize:11,color:"#7C819A"}}>Local execution</div></div>
           </div>
           <div style={{display:"flex", gap:10, alignItems:"center", borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:16}}>
-            <span style={{width:34,height:34,borderRadius:999,background:"rgba(255,255,255,.06)",display:"grid",placeItems:"center",fontSize:14,border:"1px solid rgba(255,255,255,.08)"}}>🗄️</span>
+            <span style={{width:34,height:34,borderRadius:999,background:"rgba(255,255,255,.06)",display:"grid",placeItems:"center",fontSize:11,fontWeight:700,color:"#A5B4FC",fontFamily:"var(--mono)",border:"1px solid rgba(255,255,255,.08)"}}>02</span>
             <div><div style={{fontWeight:700, fontSize:13, color:"#fff"}}>Grounded</div><div style={{fontSize:11,color:"#7C819A"}}>Citations, always</div></div>
           </div>
           <div style={{display:"flex", gap:10, alignItems:"center", borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:16}}>
-            <span style={{width:34,height:34,borderRadius:999,background:"rgba(255,255,255,.06)",display:"grid",placeItems:"center",fontSize:14,border:"1px solid rgba(255,255,255,.08)"}}>⚡</span>
+            <span style={{width:34,height:34,borderRadius:999,background:"rgba(255,255,255,.06)",display:"grid",placeItems:"center",fontSize:11,fontWeight:700,color:"#A5B4FC",fontFamily:"var(--mono)",border:"1px solid rgba(255,255,255,.08)"}}>03</span>
             <div><div style={{fontWeight:700, fontSize:13, color:"#fff"}}>Faster</div><div style={{fontSize:11,color:"#7C819A"}}>From docs to decisions</div></div>
           </div>
           <div style={{display:"flex", gap:10, alignItems:"center", borderLeft:"1px solid rgba(255,255,255,.06)", paddingLeft:16}}>
-            <span style={{width:34,height:34,borderRadius:999,background:"rgba(255,255,255,.06)",display:"grid",placeItems:"center",fontSize:14,border:"1px solid rgba(255,255,255,.08)"}}>👥</span>
+            <span style={{width:34,height:34,borderRadius:999,background:"rgba(255,255,255,.06)",display:"grid",placeItems:"center",fontSize:11,fontWeight:700,color:"#A5B4FC",fontFamily:"var(--mono)",border:"1px solid rgba(255,255,255,.08)"}}>04</span>
             <div><div style={{fontWeight:700, fontSize:13, color:"#fff"}}>Smarter</div><div style={{fontSize:11,color:"#7C819A"}}>With human oversight</div></div>
           </div>
         </div>
