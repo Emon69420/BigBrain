@@ -89,12 +89,56 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
     judge_out = None
     decision = "general"
     redteam_out = {"verdict": "pass", "findings": []}
+    # --- dashboard-maker builder pre-check: template replies, no LLM call ---
+    try:
+        from brain.boards import handle_builder as _board_builder
+        _bhit = _board_builder(text, org_id)
+    except Exception as _be:
+        tool_trace.append(f"builder pre-check failed open: {_be}")
+        _bhit = None
+    if _bhit:
+        _banswer, _bjudge, _bevidence, _btrace = _bhit
+        tool_trace.extend(_btrace)
+        _bred = {"verdict": "pass", "findings": [],
+                 "note": "builder template: echoes user labels + DB state, no claims",
+                 "regenerated": False, "rejected_draft": None}
+        _did = None
+        try:
+            from brain.decision import record_decision as _rec
+            _did = _rec(request_id, org_id, text, task, model_key, model_id,
+                        _bevidence, None, _bred, _bjudge)
+            if _did:
+                tool_trace.append(f"decision: {_did}")
+        except Exception as _de:
+            tool_trace.append(f"decision record failed open: {_de}")
+        return {
+            "task": task, "model": model_key, "model_id": model_id,
+            "answer": _banswer, "mode": "harness-groq+localpg",
+            "request_id": request_id, "org_id": org_id,
+            "grounded": True, "general_knowledge": False,
+            "evidence": _bevidence,
+            "search_queries": [text],
+            "tool_used": None,
+            "tool_trace": tool_trace,
+            "judge": _bjudge,
+            "redteam": _bred,
+            "decision_id": _did,
+        }
     if retrieve:
         try:
             from data.service import hybrid_search
             evidence = hybrid_search(text, user_dept, limit=5, org_id=org_id, queries=[text])
         except Exception:
             evidence = []
+        # --- dashboard reader: attach latest board values for value questions ---
+        try:
+            from brain.boards import handle_board_reader as _board_reader
+            _bev, _btrace = _board_reader(text, org_id)
+            if _bev:
+                evidence = list(evidence) + _bev
+                tool_trace.append(_btrace)
+        except Exception as _be2:
+            tool_trace.append(f"board reader failed open: {_be2}")
         # --- judge after retrieval: sees evidence + tools + query ---
         try:
             from brain.judge import judge as judge_fn

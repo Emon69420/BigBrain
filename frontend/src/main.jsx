@@ -10,6 +10,7 @@ import { ChatView, EvidencePanel } from "./views/Chat.jsx";
 import { KBView } from "./views/KB.jsx";
 import { ToolsView } from "./views/Tools.jsx";
 import { SecurityView } from "./views/Security.jsx";
+import { BoardsView } from "./views/Boards.jsx";
 import { FileUpload, TextIngest } from "./components/FileUpload.jsx";
 import { useIngest } from "./hooks/useIngest.js";
 import BrainMark from "./components/BrainMark.jsx";
@@ -21,11 +22,12 @@ const RAIL_ICONS = {
   ingest: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg>,
   security: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>,
   audit: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>,
+  boards: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>,
 };
 
 function IconRail({ view, setView }){
   const items=[
-    ["chat","Chat"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],["security","Security"],
+    ["chat","Chat"],["boards","Boards"],["kb","Knowledge Base"],["tools","Tools"],["ingest","Ingest"],["security","Security"],
   ];
   const soon=[["audit","Audit (soon)"]];
   return (
@@ -118,7 +120,10 @@ function AppShell({ user, orgs, onLogout }){
   }
   const [phase,setPhase]=useState(null);
   const [highlight,setHighlight]=useState(null);
+  const [buildPrompt,setBuildPrompt]=useState(null);
+  function handleBuild(prompt){ setBuildPrompt(prompt); setView("chat"); }
   async function handleAsk(text){
+    setBuildPrompt(null);
     const id=await ensureThread();
     await api.postMessage(id,{role:"user", content:text});
     setPhase("searching");
@@ -184,11 +189,12 @@ function AppShell({ user, orgs, onLogout }){
           {view==="chat" && (
             <>
               {!cid && <div className="card" style={{marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, borderStyle:"dashed"}}><span style={{fontSize:13, color:"#6B7280"}}>Pick a chat from the panel, or start a new conversation.</span><button className="btn" style={{padding:"6px 14px", borderRadius:999, background:"#08090C", color:"#fff", borderColor:"#08090C"}} onClick={handleNew}>+ New chat</button></div>}
-              <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase}/>
+              <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase} buildPrompt={buildPrompt}/>
               <EvidencePanel open={!!evMsg} onClose={()=>{setEvMsg(null); setHighlight(null);}} msg={evMsg} highlightDoc={highlight}/>
             </>
           )}
           {view==="kb" && <KBView/>}
+          {view==="boards" && <BoardsView onBuild={handleBuild}/>}
           {view==="tools" && <ToolsView/>}
           {view==="security" && <SecurityView/>}
           {view==="ingest" && (

@@ -9,6 +9,7 @@ from routes.tool_routes import tool_bp
 from routes.docs_routes import docs_bp
 from routes.security_routes import security_bp
 from routes.decision_routes import decision_bp
+from routes.dashboard_routes import dashboard_bp
 from auth.routes import auth_bp
 from chat.routes import chat_bp
 
@@ -53,6 +54,7 @@ def create_app():
     app.register_blueprint(docs_bp)
     app.register_blueprint(security_bp)
     app.register_blueprint(decision_bp)
+    app.register_blueprint(dashboard_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(chat_bp)
     return app

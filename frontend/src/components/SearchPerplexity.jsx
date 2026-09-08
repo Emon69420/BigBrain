@@ -17,7 +17,7 @@ export function PhaseIndicator({ phase }){
 }
 
 // Perplexity search box: icon + input + send. Rounded, focus ring.
-export function SearchBox({ onAsk, loading, placeholder="Ask anything…" }){
+export function SearchBox({ onAsk, loading, placeholder="Ask anything…", initial }){
   function submit(e){
     e.preventDefault();
     const fd=new FormData(e.target);
@@ -28,7 +28,7 @@ export function SearchBox({ onAsk, loading, placeholder="Ask anything…" }){
   return (
     <form onSubmit={submit} className="search-box">
       <span style={{color:"var(--muted-2)"}}>⌕</span>
-      <input name="q" placeholder={placeholder} disabled={loading} autoComplete="off"/>
+      <input name="q" placeholder={placeholder} disabled={loading} autoComplete="off" defaultValue={initial||""}/>
       <button className="send" disabled={loading} aria-label="Send">→</button>
     </form>
   );

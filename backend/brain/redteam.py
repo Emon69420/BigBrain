@@ -17,8 +17,8 @@ NUM_RE = re.compile(r"-?\d[\d,]*\.?\d*\s?%?")
 _FW_OPEN = chr(0x3010)
 _FW_CLOSE = chr(0x3011)
 CITE_RE = re.compile(
-    r"\[(doc|tool):([^\]]+)\]"
-    r"|" + _FW_OPEN + r"(doc|tool):([^" + _FW_CLOSE + r"]+)" + _FW_CLOSE
+    r"\[(doc|tool|board):([^\]]+)\]"
+    r"|" + _FW_OPEN + r"(doc|tool|board):([^" + _FW_CLOSE + r"]+)" + _FW_CLOSE
 )
 # Matches ASCII [doc:17] and fullwidth [doc:17] (U+3010/U+3011, which LLMs emit).
 # Fullwidth chars are built with chr() so the source stays pure ASCII.
@@ -34,6 +34,11 @@ def _norm(text):
     t = re.sub("(?<=\\d)[  ](?=\\d)", "", t)
     t = t.replace("‑", "-").replace("‐", "-").replace(" ", " ")
     return t
+
+
+def _ws(s):
+    """Collapse all unicode whitespace — models emit U+202F inside cite refs."""
+    return re.sub(r"\s+", " ", str(s or "")).strip()
 
 
 def _numbers(text):
@@ -58,6 +63,12 @@ def deterministic_checks(answer, evidence, tool_used, question=""):
     evidence = evidence or []
     doc_ids = {str(e.get("doc_id")) for e in evidence}
     tool_names = {str(e.get("doc_id")) for e in evidence if e.get("tool")}
+    board_refs = set()
+    for e in evidence:
+        if e.get("board"):
+            t = str(e.get("title") or "")
+            board_refs.add(_ws(t[6:] if t.startswith("board:") else t))
+            board_refs.add(_ws(e.get("doc_id")))
     if isinstance(tool_used, dict) and tool_used.get("name") and not tool_used.get("error"):
         for part in str(tool_used["name"]).split(" -> "):
             tool_names.add(part.strip())
@@ -67,6 +78,8 @@ def deterministic_checks(answer, evidence, tool_used, question=""):
             findings.append(f"citation [doc:{ref}] has no matching evidence — dangling citation")
         if kind == "tool" and ref not in tool_names:
             findings.append(f"citation [tool:{ref}] has no executed tool behind it — unverified number")
+        if kind == "board" and _ws(ref) not in board_refs:
+            findings.append(f"citation [board:{ref}] matches no board in evidence — dangling citation")
 
     if isinstance(tool_used, dict) and tool_used.get("error") and _citations(answer):
         findings.append(f"tool {tool_used.get('name')} errored but answer still cites sources — numbers unexecuted")
@@ -109,6 +122,37 @@ def deterministic_checks(answer, evidence, tool_used, question=""):
         if not any(_close(n, s) for s in source_nums):
             findings.append(f"number {n:g} (\"{_span_around(m)}\") traces to no tool output or evidence — possibly guessed")
 
+    # board value fidelity: small numbers (<10) skip the loop above, but board
+    # readings ARE small numbers (4.2 bar). Numbers quoted next to a [board:]
+    # cite must be recorded readings, timestamps from evidence, or user numbers.
+    if any(e.get("board") for e in evidence):
+        board_vals = set()
+        for e in evidence:
+            if e.get("board"):
+                for v in e.get("board_values", []) or []:
+                    try:
+                        board_vals.add(float(v))
+                    except (ValueError, TypeError):
+                        pass
+        for m in CITE_RE.finditer(answer or ""):
+            kind = m.group(1) or m.group(3)
+            if kind != "board":
+                continue
+            ref = m.group(2) or m.group(4)
+            window = answer[max(0, m.start() - 120):m.start()]
+            for nm in NUM_RE.finditer(window):
+                try:
+                    n = float(nm.group(0).strip().rstrip("%").replace(",", ""))
+                except ValueError:
+                    continue
+                if n in question_nums:
+                    continue
+                if any(abs(n - s) <= max(1e-6, abs(s) * 1e-6) for s in source_nums):
+                    continue
+                if any(abs(n - v) <= max(1e-6, abs(v) * 1e-6) for v in board_vals):
+                    continue
+                findings.append(f"number {nm.group(0).strip()} next to [board:{ref}] is not a recorded reading — possibly misquoted")
+
     if findings:
         return {"verdict": "fail", "findings": findings}
     return {"verdict": "pass", "findings": []}
@@ -145,9 +189,13 @@ def llm_review(answer, evidence, tool_used, org_id="default"):
     from utils.observability import log_llm_call, new_request_id, timed, elapsed_ms
     reg = load_registry()
     brain = GroqBrain(reg)
-    ev_block = "\n---\n".join(
-        f"[doc:{e.get('doc_id')}] {e.get('title','')}\n{e.get('content','')[:600]}" for e in (evidence or [])
-    ) or "(no evidence)"
+    def _ev_line(e):
+        if e.get("board"):
+            t = str(e.get("title") or "")
+            nm = t[6:] if t.startswith("board:") else str(e.get("doc_id", ""))
+            return f"[board:{nm}]\n{e.get('content','')[:600]}"
+        return f"[doc:{e.get('doc_id')}] {e.get('title','')}\n{e.get('content','')[:600]}"
+    ev_block = "\n---\n".join(_ev_line(e) for e in (evidence or [])) or "(no evidence)"
     tool_block = _tool_contract(tool_used)
     prompt = REDTEAM_TEMPLATE.format(answer=answer, evidence_block=ev_block, tool_block=tool_block)
     req_id = new_request_id()

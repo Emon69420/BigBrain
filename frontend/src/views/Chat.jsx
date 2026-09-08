@@ -1,7 +1,8 @@
 // Chat per design.md §7: hairline turns, orb model badge, Task List Card,
 // Reasoning disclosure (collapsed), Evidence drawer, hairline input bar.
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SearchBox, PhaseIndicator } from "../components/SearchPerplexity.jsx";
+import { BoardPreview } from "./Boards.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
 import * as api from "../services/api.js";
 
@@ -34,9 +35,10 @@ function normCites(text){
 
 function renderWithCites(text, onCite){
   if(!text) return null;
-  const parts=normCites(text).split(/(\[doc:\d+\]|\[tool:[^\]]+\])/g);
+  const parts=normCites(text).split(/(\[doc:\d+\]|\[tool:[^\]]+\]|\[board:[^\]]+\])/g);
   return parts.map((p,i)=>{
-    const m=p.match(/\[(doc|tool):([^\]]+)\]/);
+    const m=p.match(/\[(doc|tool|board):([^\]]+)\]/);
+    if(m && m[1]==="board") return <span key={i} className="cite board" title="Live board reading">{p}</span>;
     if(m) return <a key={i} className="cite" onClick={()=>{ const v=m[2]; const num=Number(v); onCite(isNaN(num)?v:num); }}>{p}</a>;
     return <span key={i}>{p}</span>;
   });
@@ -187,11 +189,18 @@ function HowComputed({ msg }){
   );
 }
 
-export function ChatView({ messages, onAsk, loading, onInfo, phase }){
+export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt }){
   const lastAssistant=[...messages].reverse().find(m=>m.role==="assistant");
   const ev=lastAssistant?.evidence||[];
   const lastUser=[...messages].reverse().find(m=>m.role==="user");
   const showCard = phase || lastAssistant;
+  // live board preview: latest assistant message carrying board evidence
+  const [boardRef, setBoardRef] = useState(null);
+  const boardMsg=[...messages].reverse().find(m=>m.role==="assistant" && (m.evidence||[]).some(e=>e.board));
+  const boardId=boardMsg ? (boardMsg.evidence.find(e=>e.board)||{}).doc_id : null;
+  useEffect(()=>{
+    if(boardMsg && boardId) setBoardRef(r=>(r && r.mid===boardMsg.id) ? r : {id:boardId, mid:boardMsg.id});
+  },[messages]);
   return (
     <div className="center-col" style={{zoom:1.25}}>
       <div>
@@ -214,6 +223,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
                     <span className="badge"><span className={`badge-dot ${m.general_knowledge?"":"low"}`} style={m.general_knowledge?{background:"var(--st-unverified)"}:null}/>{m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
                   )}
                   {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
+                  {(m.evidence||[]).some(e=>e.board) && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>{ const b=(m.evidence.find(e=>e.board)||{}); if(b.doc_id) setBoardRef({id:b.doc_id, mid:m.id}); }}>▦ board</button>}
                 </div>
                 <HowComputed msg={m}/>
               </div>
@@ -227,8 +237,18 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
             <span className="badge"><span className="badge-dot"/>auto</span>
             <span className="small muted">model routed per message · sources open via ⓘ on any answer</span>
           </div>
-          <SearchBox onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…"/>
+          <SearchBox key={buildPrompt||"ask"} onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…" initial={buildPrompt}/>
         </div>
+        {boardRef && (
+          <div className="evidence-panel open">
+            <div style={{padding:16, borderBottom:"1px solid var(--line)", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+              <strong>Board preview</strong><button className="btn" onClick={()=>setBoardRef(null)}>×</button>
+            </div>
+            <div style={{padding:16}} key={boardRef.mid}>
+              <BoardPreview id={boardRef.id}/>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -244,7 +264,7 @@ export function EvidencePanel({ open, onClose, msg, highlightDoc }){
       {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}><em>No sources — this answer used general knowledge.</em></div>}
       {msg?.evidence?.map((e,i)=>(
         <div key={i} style={{padding:"12px 16px", borderBottom:"1px solid var(--line)", background: highlightDoc===String(e.doc_id)?"var(--panel)":"transparent"}}>
-          <div className="small" style={{color:"var(--muted)"}}>{e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{e.title}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
+          <div className="small" style={{color:"var(--muted)"}}>{e.board ? `[board:${String(e.title||"").replace(/^board:/,"")||e.doc_id}]` : e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{e.title}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
           <div style={{marginTop:6, whiteSpace:"pre-wrap", fontSize:14}}>{e.content}</div>
         </div>
       ))}

@@ -4,6 +4,7 @@ PROMPT_TEMPLATE = """You are BigBrain, a company knowledge assistant.
 
 Rules:
 - If Evidence contains the answer, cite as [doc:ID] and answer from it.
+- Board readings under [board:Name] are live staff-entered values: quote exact values with a [board:Name] cite and state "as of <recorded timestamp>".
 - If Evidence is empty, answer helpfully from general knowledge (do NOT add any prefix — the UI will show a flag).
 - If evidence conflicts, list both and flag: "Evidence conflicts between [doc:11] and [doc:12]".
 - Be concise.
@@ -23,6 +24,11 @@ def format_evidence(evidence):
         return NO_EVIDENCE_INSTRUCTION
     lines = []
     for e in evidence:
+        if e.get("board"):
+            t = str(e.get("title") or "")
+            bname = t[6:] if t.startswith("board:") else str(e.get("doc_id", ""))
+            lines.append(f"[board:{bname}]\n{e['content']}")
+            continue
         meta = f"[doc:{e['doc_id']}] {e.get('title','')}".strip()
         if e.get("distance") is not None:
             try:
@@ -102,6 +108,7 @@ Check, in order:
 4. Number mismatch: any number in the answer that does not appear in the tool output or evidence.
 5. Units and names stated in the tool's own contract (desc/Args) or in the user question count as VERIFIED — never flag them. A tool named compute_kinetic_energy returning 250.0 IS joules by contract.
 6. Do NOT flag citation formatting, wording, or style — only factual groundedness. A style-only observation is not a finding; if style is all you have, return pass with [].
+7. Board citations [board:Name] are valid when a matching [board:Name] entry appears in Retrieved evidence — never claim a present board cite is missing or unsupported. Quoted board values match the entry's readings.
 
 Each finding MUST quote the exact answer span it accuses, format: "<exact quote>" → issue. Example: "250 J" → unit not stated anywhere.
 

@@ -110,6 +110,7 @@ select.input{width:auto}
 .answer h2,.answer h3{margin:12px 0 6px;color:var(--ink-app)}
 .cite{font-size:11px;color:#A5B4FC;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.25);padding:2px 7px;border-radius:999px;margin-left:4px;cursor:pointer;font-weight:600}
 .cite:hover{background:#6366F1;color:#fff;border-color:#6366F1}
+.cite.board{cursor:default;border-style:dashed}
 .sources-panel{position:sticky;top:64px;max-height:calc(100vh - 72px);overflow:auto}
 .source-card{border:1px solid var(--line-app);border-radius:12px;padding:12px;transition:.15s;background:rgba(31,37,66,.7);color:var(--ink-app)}
 .source-card:hover{border-color:#6366F1;transform:translateY(-1px)}
