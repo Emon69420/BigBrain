@@ -7,6 +7,7 @@ from routes.health_routes import health_bp
 from routes.ask_routes import ask_bp
 from routes.tool_routes import tool_bp
 from routes.docs_routes import docs_bp
+from routes.security_routes import security_bp
 from auth.routes import auth_bp
 from chat.routes import chat_bp
 
@@ -49,6 +50,7 @@ def create_app():
     app.register_blueprint(ask_bp)
     app.register_blueprint(tool_bp)
     app.register_blueprint(docs_bp)
+    app.register_blueprint(security_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(chat_bp)
     return app

@@ -10,6 +10,14 @@ def get_conn():
         register_vector(conn)
     except Exception:
         pass  # extension not installed yet — init_db() installs it
+    try:
+        from urllib.parse import urlparse
+        from security.service import record, check_host
+        db_host = (urlparse(os.getenv("DATABASE_URL", "")).hostname or "localhost").lower()
+        _, verdict, host = check_host(db_host)
+        record("database", host, verdict, source="db:connect")
+    except Exception:
+        pass  # accounting must never break data access
     return conn
 
 
