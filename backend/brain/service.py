@@ -130,6 +130,15 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
             evidence = hybrid_search(text, user_dept, limit=5, org_id=org_id, queries=[text])
         except Exception:
             evidence = []
+        # --- dashboard reader: attach latest board values for value questions ---
+        try:
+            from brain.boards import handle_board_reader as _board_reader
+            _bev, _btrace = _board_reader(text, org_id)
+            if _bev:
+                evidence = list(evidence) + _bev
+                tool_trace.append(_btrace)
+        except Exception as _be2:
+            tool_trace.append(f"board reader failed open: {_be2}")
         # --- judge after retrieval: sees evidence + tools + query ---
         try:
             from brain.judge import judge as judge_fn

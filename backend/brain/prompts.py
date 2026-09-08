@@ -4,6 +4,7 @@ PROMPT_TEMPLATE = """You are BigBrain, a company knowledge assistant.
 
 Rules:
 - If Evidence contains the answer, cite as [doc:ID] and answer from it.
+- Board readings under [board:Name] are live staff-entered values: quote exact values with a [board:Name] cite and state "as of <recorded timestamp>".
 - If Evidence is empty, answer helpfully from general knowledge (do NOT add any prefix — the UI will show a flag).
 - If evidence conflicts, list both and flag: "Evidence conflicts between [doc:11] and [doc:12]".
 - Be concise.
@@ -23,6 +24,11 @@ def format_evidence(evidence):
         return NO_EVIDENCE_INSTRUCTION
     lines = []
     for e in evidence:
+        if e.get("board"):
+            t = str(e.get("title") or "")
+            bname = t[6:] if t.startswith("board:") else str(e.get("doc_id", ""))
+            lines.append(f"[board:{bname}]\n{e['content']}")
+            continue
         meta = f"[doc:{e['doc_id']}] {e.get('title','')}".strip()
         if e.get("distance") is not None:
             try:

@@ -34,9 +34,10 @@ function normCites(text){
 
 function renderWithCites(text, onCite){
   if(!text) return null;
-  const parts=normCites(text).split(/(\[doc:\d+\]|\[tool:[^\]]+\])/g);
+  const parts=normCites(text).split(/(\[doc:\d+\]|\[tool:[^\]]+\]|\[board:[^\]]+\])/g);
   return parts.map((p,i)=>{
-    const m=p.match(/\[(doc|tool):([^\]]+)\]/);
+    const m=p.match(/\[(doc|tool|board):([^\]]+)\]/);
+    if(m && m[1]==="board") return <span key={i} className="cite board" title="Live board reading">{p}</span>;
     if(m) return <a key={i} className="cite" onClick={()=>{ const v=m[2]; const num=Number(v); onCite(isNaN(num)?v:num); }}>{p}</a>;
     return <span key={i}>{p}</span>;
   });

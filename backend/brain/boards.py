@@ -82,6 +82,56 @@ def _strip_board_ref(s, board_name=""):
     return s.strip().rstrip(".")
 
 
+VALUE_WORDS = re.compile(
+    r"\b(what|how\s+much|how\s+many|current|latest|value|values|reading|"
+    r"readings|pressure|amount|status|show|tell|give|report)\b", re.I)
+READER_BUILDER_VERBS = re.compile(
+    r"\b(create|make|build|set\s+up|add|remove|drop|delete|finali[sz]e|rename)\b",
+    re.I)
+
+
+def handle_board_reader(text, org_id):
+    """Live-board lookup for value questions.
+    Returns (evidence_list, trace_note). Empty when no live board matches,
+    so the normal RAG pipeline continues untouched."""
+    if READER_BUILDER_VERBS.search(text):
+        return [], ""
+    if not VALUE_WORDS.search(text):
+        return [], ""
+    from data import dashboards as boards
+    low = text.lower()
+    hits = []
+    for b in boards.list_dashboards(org_id):
+        if b["status"] != "live":
+            continue
+        if b["name"].lower() in low or (b["zone"] and b["zone"].lower() in low):
+            hits.append(b)
+    if not hits:
+        return [], ""
+    out = []
+    for b in hits:
+        full = boards.get_latest(b["id"], org_id)
+        lines = []
+        vals = []
+        for m in full["latest"]:
+            if m["recorded_at"]:
+                unit = f" {m['unit']}" if m.get("unit") else ""
+                by = f" by {m['recorded_by']}" if m.get("recorded_by") else ""
+                lines.append(f"- {m['label']} = {m['value_text']}{unit} "
+                             f"(recorded {m['recorded_at']}{by})")
+                if m["value_num"] is not None:
+                    vals.append(m["value_num"])
+            else:
+                lines.append(f"- {m['label']}: no readings yet")
+        out.append({
+            "content": f"Board {b['name']} [live]:\n" + "\n".join(lines),
+            "doc_id": b["id"], "title": f"board:{b['name']}",
+            "dept": "operations", "class": "open", "distance": 0.0,
+            "board": True, "board_values": vals,
+        })
+    return out, f"boards: attached latest from {', '.join(h['name'] for h in hits)}"
+
+
 def _drafts(org_id):
     from data.dashboards import list_dashboards
     return [b for b in list_dashboards(org_id) if b["status"] == "draft"]
