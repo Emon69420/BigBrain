@@ -100,6 +100,10 @@ Check, in order:
 2. Stale or superseded evidence: dates, versions, or intervals that look outdated or contradicted between sources.
 3. Unverified assumptions: unit conversions, physical constants, or premises the answer relies on without stating (e.g. g=9.8 assumed, kW vs kWh confused, missing arg defaults).
 4. Number mismatch: any number in the answer that does not appear in the tool output or evidence.
+5. Units and names stated in the tool's own contract (desc/Args) or in the user question count as VERIFIED — never flag them. A tool named compute_kinetic_energy returning 250.0 IS joules by contract.
+6. Do NOT flag citation formatting, wording, or style — only factual groundedness. A style-only observation is not a finding; if style is all you have, return pass with [].
+
+Each finding MUST quote the exact answer span it accuses, format: "<exact quote>" → issue. Example: "250 J" → unit not stated anywhere.
 
 Respond strictly as JSON: {{"verdict": "pass|flag|fail", "findings": ["..."]}}.
 - pass: nothing material found.
