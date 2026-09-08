@@ -39,78 +39,109 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
             tool_trace.append(f"judge failed open: {e}")
             decision = "docs" if evidence else "general"
             judge_out = {"decision":decision, "tool_task":""}
-        # act on decision — exact hit / chain / single full build (never half-built)
+        # --- 4-stage pipeline: selector -> builder -> caller (smart, no half-built) ---
         if decision in ("tool_only","docs_plus_tool"):
-            tool_task = (judge_out.get("tool_task") or text).strip()
+            tool_task_obj = judge_out.get("tool_task") or {"purpose": text, "inputs": {}}
+            # normalize: judge may return string for backward compat
+            if isinstance(tool_task_obj, str):
+                tool_task_obj = {"purpose": tool_task_obj, "inputs": {}}
+            tool_task_str = tool_task_obj.get("purpose", text)
             try:
-                from tools.factory import score_fit, plan_chain, execute_chain, find_tool
+                from brain.selector import select as select_fn
                 from tools.builder import ensure_tool
                 from tools.runner import run_tool
-                # 1) try single exact hit
-                hit_entry = None
-                for t in __import__('tools.factory', fromlist=['list_registry']).list_registry():
-                    if score_fit(tool_task, t) == "exact":
-                        hit_entry = t
-                        break
-                if hit_entry:
-                    # reuse without building
-                    t_res = {"hit": True, "entry": hit_entry, "trace": [f"exact hit: {hit_entry['name']}"]}
-                    tool_trace.append(t_res["trace"][0])
-                else:
-                    # 2) try chain of exact tools (max 3, validated)
-                    chain = plan_chain(tool_task)
-                    if chain:
-                        tool_trace.append(f"chain proposed: {' -> '.join(s['tool'] for s in chain)}")
-                        # need initial args from query
-                        init_args = {}
-                        try:
-                            # extract initial args for chain via judge's tool_task numbers
-                            import json, re
-                            # use same arg extraction for first step's tool
-                            pass
-                        except: pass
-                        exec_res = execute_chain(chain, initial_args=None)
+                from tools.factory import list_registry as _list
+                # 1) selector decides sufficient/partial/none
+                sel = select_fn(tool_task_obj, _list())
+                tool_trace.append(f"selector: {sel.get('verdict')} selected {len(sel.get('selected',[]))} missing {len(sel.get('missing',[]))}")
+                # 2) build missing (exactly those not covered)
+                built = []
+                for miss in sel.get("missing", []):
+                    purpose = miss.get("purpose") or miss.get("task") or tool_task_str
+                    inputs = miss.get("inputs", {})
+                    t_res = ensure_tool(purpose, sample_input=inputs if inputs else None, created_by="auto", org_id=org_id)
+                    tool_trace.extend(t_res.get("trace", []))
+                    if t_res.get("entry"):
+                        built.append(t_res["entry"])
+                    else:
+                        tool_trace.append(f"build failed for {purpose}: {t_res.get('error')}")
+                # 3) caller: run selected (existing) + built (new) — deterministic, no half-built
+                # for sufficient: run the selected single (or chain if multiple)
+                to_run = sel.get("selected", [])
+                # if selector said sufficient with one tool, run it; if chain (multiple), run via execute_chain
+                if len(to_run) == 1 and not built:
+                    # single exact hit reuse
+                    entry = next((t for t in _list() if t["name"]==to_run[0].get("tool")), None)
+                    if entry:
+                        # extract args from judge inputs + arg_map
+                        arg_map = to_run[0].get("arg_map", {})
+                        args = {}
+                        for tool_arg, input_key in (arg_map or {}).items():
+                            if input_key in (tool_task_obj.get("inputs",{}) or {}):
+                                args[tool_arg] = tool_task_obj["inputs"][input_key]
+                        if not args:
+                            # fallback: ask LLM to map correctly using full_desc
+                            try:
+                                full = entry.get("full_desc","")
+                                ap = f"Tool {entry['name']} expects:\n{full}\nInputs available: {tool_task_obj.get('inputs',{})}\nReturn JSON with exact tool arg names. Return JSON only."
+                                raw,_ = _brain.chat_full("groq-slm", [{"role":"user","content":ap}])
+                                import json, re; m=re.search(r"\{.*\}", raw, re.S)
+                                if m: args=json.loads(m.group(0))
+                            except: args = tool_task_obj.get("inputs",{})
+                        run_res = run_tool(entry["name"], args)
+                        newly = False
+                        if run_res.get("ok"):
+                            tool_used = {"name": entry["name"], "hit": True, "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": newly}
+                            evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "newly_created": newly}] + evidence
+                        else:
+                            tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": True, "decision":decision, "newly_created": newly}
+                elif to_run or built:
+                    # chain or multiple: use execute_chain with built tools included
+                    # build a step list from selector + built
+                    steps = []
+                    for s in to_run:
+                        steps.append({"tool": s.get("tool"), "args": {k: tool_task_obj.get("inputs",{}).get(v, v) for k,v in (s.get("arg_map") or {}).items()}})
+                    # append built as final steps if any
+                    for b in built:
+                        # try to run built with original inputs
+                        steps.append({"tool": b["name"], "args": tool_task_obj.get("inputs",{})})
+                    if not steps and built:
+                        steps = [{"tool": built[0]["name"], "args": tool_task_obj.get("inputs",{})}]
+                    if steps:
+                        from tools.factory import execute_chain
+                        exec_res = execute_chain(steps, initial_args=tool_task_obj.get("inputs",{}))
                         tool_trace.extend(exec_res.get("trace", []))
                         if exec_res.get("ok"):
-                            # chain succeeded — synthesize a virtual tool_used
-                            tool_used = {"name": " -> ".join(s["tool"] for s in chain), "hit": True, "uses": 0, "result": str(exec_res["result"]), "decision": decision, "chain": True}
-                            evidence = [{"content": f"Tool chain {' -> '.join(s['tool'] for s in chain)} result: {tool_used['result']}", "doc_id": chain[-1]["tool"], "title": f"tool:{chain[-1]['tool']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "chain": True, "newly_created": False}] + evidence
-                            # skip single-tool path
-                            hit_entry = "CHAIN_DONE"
+                            names = " -> ".join(s["tool"] for s in steps)
+                            # newly_created if any built in chain
+                            newly_chain = len(built) > 0
+                            tool_used = {"name": names, "hit": len(built)==0, "uses": 0, "result": str(exec_res["result"]), "decision":decision, "chain": len(steps)>1, "newly_created": newly_chain}
+                            evidence = [{"content": f"Tool chain {names} result: {tool_used['result']}", "doc_id": steps[-1]["tool"], "title": f"tool:{steps[-1]['tool']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "chain": len(steps)>1, "newly_created": newly_chain}] + evidence
                         else:
-                            tool_trace.append(f"chain failed: {exec_res.get('error')} -> fallback to single full build")
-                            hit_entry = None
-                    if hit_entry != "CHAIN_DONE":
-                        # not hit and chain not viable -> build one full tool
-                        if not hit_entry:
-                            t_res = ensure_tool(tool_task, sample_input=None, created_by="auto", org_id=org_id)
-                            tool_trace.extend(t_res.get("trace", []))
-                            hit_entry = t_res.get("entry")
-                            t_hit = t_res.get("hit", False)
-                        else:
-                            t_hit = True
-                            t_res = {"hit": True}
-                        if hit_entry and hit_entry != "CHAIN_DONE":
-                            entry = hit_entry
-                            args = {}
-                            try:
-                                full = entry.get("full_desc","") or entry.get("desc","")
-                                arg_prompt = f"Tool {entry['name']} expects:\n{full}\nQuery: {text}\nTool task: {tool_task}\nReturn JSON with exact arg names only. Numbers only. Return JSON only."
-                                raw,_ = _brain.chat_full("groq-llm", [{"role":"user","content":arg_prompt}])
-                                import json, re
-                                m=re.search(r"\{.*\}", raw, re.S)
-                                if m: args=json.loads(m.group(0))
-                            except: args={}
-                            run_res = run_tool(entry["name"], args if args else None)
-                            newly = not t_hit
-                            if run_res.get("ok"):
-                                tool_used = {"name": entry["name"], "hit": t_hit, "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": newly}
-                                evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "newly_created": newly}] + evidence
-                            else:
-                                tool_used = {"name": entry["name"], "error": run_res.get("error"), "hit": t_hit, "decision":decision, "newly_created": newly}
-                                tool_trace.append(f"run failed: {run_res.get('error')}")
+                            tool_trace.append(f"chain exec failed: {exec_res.get('error')}")
+                # fallback: if nothing selected/built but we have a built single (none case)
+                if not tool_used and built:
+                    # single newly built tool not yet run (selector none case)
+                    entry = built[0]
+                    args = tool_task_obj.get("inputs",{})
+                    run_res = run_tool(entry["name"], args)
+                    if run_res.get("ok"):
+                        tool_used = {"name": entry["name"], "hit": False, "uses": 0, "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": True}
+                        evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "newly_created": True}] + evidence
+                if not tool_used and not built and not to_run:
+                    # selector said none but builder failed — ensure one full tool as last resort
+                    t_res = ensure_tool(tool_task_str, sample_input=tool_task_obj.get("inputs"), created_by="auto", org_id=org_id)
+                    tool_trace.extend(t_res.get("trace", []))
+                    entry = t_res.get("entry")
+                    if entry:
+                        args = tool_task_obj.get("inputs",{})
+                        run_res = run_tool(entry["name"], args)
+                        newly = not t_res.get("hit", False)
+                        if run_res.get("ok"):
+                            tool_used = {"name": entry["name"], "hit": t_res.get("hit", False), "uses": entry.get("uses",0), "result": run_res.get("stdout") or str(run_res.get("result")), "decision":decision, "newly_created": newly}
+                            evidence = [{"content": f"Tool {entry['name']} result: {tool_used['result']}", "doc_id": entry["name"], "title": f"tool:{entry['name']}", "dept": user_dept, "class": "open", "distance": 0.0, "tool": True, "newly_created": newly}] + evidence
             except Exception as e:
-                tool_trace.append(f"tool auto failed: {e}")
+                import traceback; tool_trace.append(f"tool pipeline failed: {e} {traceback.format_exc()[:200]}")
         elif decision == "general":
             # no retrieval needed already, but we already retrieved — just keep evidence empty for general badge
             pass

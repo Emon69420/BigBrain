@@ -21,7 +21,7 @@ tools:
     Returns: product'
   status: unverified
   version: 1
-  uses: 3
+  uses: 5
   created_by: user
 - name: simulate_blast_load_on
   path: backend/tools/custom/simulate_blast_load_on.py
@@ -125,4 +125,44 @@ tools:
   status: unverified
   version: 1
   uses: 2
+  created_by: auto
+- name: custom_tool
+  path: backend/tools/custom/custom_tool.py
+  desc: Multiply two numbers - computes product of two floats
+  full_desc: 'Multiply two numbers - computes product of two floats
+
+    Args: a (float), b (float)
+
+    Returns: product (float)'
+  status: unverified
+  version: 1
+  uses: 0
+  created_by: auto
+- name: compute_temperature_difference_to
+  path: backend/tools/custom/compute_temperature_difference_to.py
+  desc: Temperature difference calculator - computes difference between two Celsius
+    temperatures
+  full_desc: 'Temperature difference calculator - computes difference between two
+    Celsius temperatures
+
+    Args: start_c (float), end_c (float)
+
+    Returns: diff_c (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto
+- name: compute_microwave_heating_time
+  path: backend/tools/custom/compute_microwave_heating_time.py
+  desc: Microwave heating time calculator - computes heating time given energy and
+    power
+  full_desc: 'Microwave heating time calculator - computes heating time given energy
+    and power
+
+    Args: energy_j (float), power_w (float)
+
+    Returns: time_s (float)'
+  status: unverified
+  version: 1
+  uses: 0
   created_by: auto

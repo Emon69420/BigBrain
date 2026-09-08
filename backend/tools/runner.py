@@ -16,6 +16,8 @@ def run_python(code, timeout=10):
         safe_builtins = {"print": print, "range": range, "len": len,
                          "sum": sum, "min": min, "max": max, "abs": abs, "round": round,
                          "float": float, "int": int, "str": str, "bool": bool, "list": list, "dict": dict,
+                         "pow": pow, "divmod": divmod,
+                         "Exception": Exception, "ValueError": ValueError, "TypeError": TypeError,
                          "math": math, "__import__": __import__}
         with contextlib.redirect_stdout(buf):
             exec(code, {"__builtins__": safe_builtins})
