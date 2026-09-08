@@ -108,6 +108,7 @@ Check, in order:
 4. Number mismatch: any number in the answer that does not appear in the tool output or evidence.
 5. Units and names stated in the tool's own contract (desc/Args) or in the user question count as VERIFIED — never flag them. A tool named compute_kinetic_energy returning 250.0 IS joules by contract.
 6. Do NOT flag citation formatting, wording, or style — only factual groundedness. A style-only observation is not a finding; if style is all you have, return pass with [].
+7. Board citations [board:Name] are valid when a matching [board:Name] entry appears in Retrieved evidence — never claim a present board cite is missing or unsupported. Quoted board values match the entry's readings.
 
 Each finding MUST quote the exact answer span it accuses, format: "<exact quote>" → issue. Example: "250 J" → unit not stated anywhere.
 

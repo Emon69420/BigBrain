@@ -82,6 +82,20 @@ def _strip_board_ref(s, board_name=""):
     return s.strip().rstrip(".")
 
 
+def _short_ts(ts):
+    """Human-short timestamp for LLM evidence: '9 Sep, 04:02'.
+    Full precision stays in recorded_at; short form avoids digit soup
+    that models mangle (and redteam then flags)."""
+    if not ts:
+        return "unknown time"
+    try:
+        from datetime import datetime
+        dt = datetime.fromisoformat(str(ts))
+        return f"{dt.day} {dt.strftime('%b')}, {dt.strftime('%H:%M')}"
+    except Exception:
+        return str(ts)[:16]
+
+
 VALUE_WORDS = re.compile(
     r"\b(what|how\s+much|how\s+many|current|latest|value|values|reading|"
     r"readings|pressure|amount|status|show|tell|give|report)\b", re.I)
@@ -101,11 +115,13 @@ def handle_board_reader(text, org_id):
     from data import dashboards as boards
     low = text.lower()
     hits = []
+    seen = set()
     for b in boards.list_dashboards(org_id):
-        if b["status"] != "live":
+        if b["status"] != "live" or b["id"] in seen:
             continue
         if b["name"].lower() in low or (b["zone"] and b["zone"].lower() in low):
             hits.append(b)
+            seen.add(b["id"])
     if not hits:
         return [], ""
     out = []
@@ -118,7 +134,7 @@ def handle_board_reader(text, org_id):
                 unit = f" {m['unit']}" if m.get("unit") else ""
                 by = f" by {m['recorded_by']}" if m.get("recorded_by") else ""
                 lines.append(f"- {m['label']} = {m['value_text']}{unit} "
-                             f"(recorded {m['recorded_at']}{by})")
+                             f"(recorded {_short_ts(m['recorded_at'])}{by})")
                 if m["value_num"] is not None:
                     vals.append(m["value_num"])
             else:

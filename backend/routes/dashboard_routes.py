@@ -9,10 +9,10 @@ dashboard_bp = Blueprint("dashboard", __name__)
 def _require_org():
     uid = session.get("user_id")
     if not uid:
-        return False, jsonify({"error": "not authenticated"}), None
+        return False, (jsonify({"error": "not authenticated"}), 401), None
     org = g.get("org_id", "default")
     if not _is_member(uid, org):
-        return False, jsonify({"error": "not a member of this org"}), None
+        return False, (jsonify({"error": "not a member of this org"}), 403), None
     return True, org, uid
 
 
@@ -24,7 +24,7 @@ def _bad(msg):
 def list_all():
     ok, res, _ = _require_org()
     if not ok:
-        return res, res.status_code
+        return res
     return jsonify({"dashboards": boards.list_dashboards(res)})
 
 
@@ -32,7 +32,7 @@ def list_all():
 def propose():
     ok, res, uid = _require_org()
     if not ok:
-        return res, res.status_code
+        return res
     body = request.get_json(force=True, silent=True) or {}
     try:
         b = boards.propose_dashboard(
@@ -49,7 +49,7 @@ def propose():
 def one(board_id):
     ok, res, _ = _require_org()
     if not ok:
-        return res, res.status_code
+        return res
     b = boards.get_latest(board_id, res)
     if not b:
         return jsonify({"error": "not found"}), 404
@@ -60,7 +60,7 @@ def one(board_id):
 def update(board_id):
     ok, res, _ = _require_org()
     if not ok:
-        return res, res.status_code
+        return res
     body = request.get_json(force=True, silent=True) or {}
     try:
         b = boards.update_dashboard(
@@ -78,7 +78,7 @@ def update(board_id):
 def finalize(board_id):
     ok, res, _ = _require_org()
     if not ok:
-        return res, res.status_code
+        return res
     try:
         b = boards.finalize_dashboard(board_id, res)
     except ValueError as e:
@@ -92,7 +92,7 @@ def finalize(board_id):
 def submit(board_id):
     ok, res, uid = _require_org()
     if not ok:
-        return res, res.status_code
+        return res
     body = request.get_json(force=True, silent=True) or {}
     try:
         n = boards.submit_readings(board_id, res, body.get("values", []),
@@ -108,7 +108,7 @@ def submit(board_id):
 def history(board_id):
     ok, res, _ = _require_org()
     if not ok:
-        return res, res.status_code
+        return res
     metric = request.args.get("metric", "")
     days = request.args.get("days", "30")
     h = boards.get_history(board_id, res, metric, days)

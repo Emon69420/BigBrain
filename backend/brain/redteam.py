@@ -36,6 +36,11 @@ def _norm(text):
     return t
 
 
+def _ws(s):
+    """Collapse all unicode whitespace — models emit U+202F inside cite refs."""
+    return re.sub(r"\s+", " ", str(s or "")).strip()
+
+
 def _numbers(text):
     vals = []
     for m in NUM_RE.finditer(text or ""):
@@ -62,8 +67,8 @@ def deterministic_checks(answer, evidence, tool_used, question=""):
     for e in evidence:
         if e.get("board"):
             t = str(e.get("title") or "")
-            board_refs.add(t[6:] if t.startswith("board:") else t)
-            board_refs.add(str(e.get("doc_id")))
+            board_refs.add(_ws(t[6:] if t.startswith("board:") else t))
+            board_refs.add(_ws(e.get("doc_id")))
     if isinstance(tool_used, dict) and tool_used.get("name") and not tool_used.get("error"):
         for part in str(tool_used["name"]).split(" -> "):
             tool_names.add(part.strip())
@@ -73,7 +78,7 @@ def deterministic_checks(answer, evidence, tool_used, question=""):
             findings.append(f"citation [doc:{ref}] has no matching evidence — dangling citation")
         if kind == "tool" and ref not in tool_names:
             findings.append(f"citation [tool:{ref}] has no executed tool behind it — unverified number")
-        if kind == "board" and ref not in board_refs:
+        if kind == "board" and _ws(ref) not in board_refs:
             findings.append(f"citation [board:{ref}] matches no board in evidence — dangling citation")
 
     if isinstance(tool_used, dict) and tool_used.get("error") and _citations(answer):
