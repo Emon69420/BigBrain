@@ -61,7 +61,7 @@ export function KBView(){
   async function openDoc(d){
     setSel(d);
     try{
-      const r=await fetch(`${import.meta.env.VITE_API_URL||"http://localhost:8000"}/ask`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg()},credentials:"include",body:JSON.stringify({text:d.title, retrieve:true})}).then(x=>x.json());
+      const r=await fetch(`${import.meta.env.VITE_API_URL||"https://7db2-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/ask`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include",body:JSON.stringify({text:d.title, retrieve:true})}).then(x=>x.json());
       setChunks(r.evidence?.filter(e=>e.doc_id===d.id)||[]);
     }catch{ setChunks([]); }
   }
@@ -69,12 +69,12 @@ export function KBView(){
   function pin(id,x,y){ setPinned(p=>({...p,[id]:{x,y}})); }
 
   return (
-    <div>
-      <div style={{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap"}}>
-        <h2 style={{margin:0}}>Knowledge Base</h2>
-        <span className="badge">{graph.nodes.length} docs · {graph.edges.length} links</span>
+    <div style={{width:"100%"}}>
+      <div style={{display:"flex", gap:10, alignItems:"center", flexWrap:"wrap"}}>
+        <h2 style={{margin:0, fontFamily:"var(--serif)", fontSize:28, color:"var(--ink-app)"}}>Knowledge Base</h2>
+        <span className="badge" style={{background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)", color:"var(--muted-app-2)"}}>{graph.nodes.length} docs · {graph.edges.length} links</span>
         <span style={{flex:1}}/>
-        <input className="input" style={{width:200}} placeholder="search titles, tags…" value={q} onChange={e=>setQ(e.target.value)}/>
+        <input className="input" style={{width:220, background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)"}} placeholder="search titles, tags…" value={q} onChange={e=>setQ(e.target.value)}/>
         {depts.map(d=> <button key={d} className={`kb-chip${dept===d?" on":""}`} onClick={()=>setDept(d)}>{d}</button>)}
       </div>
       {err && <div className="card" style={{marginTop:12, color:"var(--danger)"}}>{err}</div>}

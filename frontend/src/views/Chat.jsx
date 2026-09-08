@@ -85,11 +85,15 @@ function TaskListCard({ msg, phase, query }){
   }
   steps.push({label:"Human approval", state:"pending"});
   const done=steps.filter(s=>s.state==="done").length;
+  const [collapsed,setCollapsed]=useState(false);
   if(!steps.length) return null;
   return (
     <div className="task-card">
-      <div className="task-card-head"><span>{query?String(query).slice(0,60):"Working"} </span><span className="muted small">{done}/{steps.length}</span></div>
-      {steps.map((s,i)=>(
+      <div className="task-card-head" onClick={()=>setCollapsed(c=>!c)} style={{cursor:"pointer", userSelect:"none"}}>
+        <span>{query?String(query).slice(0,60):"Working"} </span>
+        <span style={{display:"flex", alignItems:"center", gap:8}}><span className="muted small">{done}/{steps.length}</span><span style={{fontSize:10, transform: collapsed ? "rotate(-90deg)" : "rotate(90deg)", transition:".15s", display:"inline-block"}}>▶</span></span>
+      </div>
+      {!collapsed && steps.map((s,i)=>(
         <div key={i}>
           <div className={`task-row ${s.state==="pending"?"pending":""}`}>
             <span className={`t-check ${s.state==="done"?"done":""} ${s.state==="blocked"?"blocked":""}`}>{s.state==="done"?"✓":s.state==="blocked"?"⊗":"○"}</span>
@@ -189,10 +193,8 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
   const lastUser=[...messages].reverse().find(m=>m.role==="user");
   const showCard = phase || lastAssistant;
   return (
-    <div className="center-col">
+    <div className="center-col" style={{zoom:1.25}}>
       <div>
-        {phase && <div style={{marginBottom:10}}><PhaseIndicator phase={phase}/></div>}
-        {showCard && <TaskListCard msg={phase?null:lastAssistant} phase={phase} query={lastUser?.content}/>}
         <div className="chat-log">
           {messages.map(m=>(
             m.role==="user" ? (
@@ -219,7 +221,8 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
           ))}
           {!messages.length && <div className="muted">No messages — ask about your docs. Try: "whats sop" or "What is inspection interval for P-204?"</div>}
         </div>
-        <div style={{maxWidth:640, marginTop:18}}>
+        {phase && <div style={{marginTop:12, marginBottom:8}}><PhaseIndicator phase={phase}/></div>}
+        <div style={{maxWidth:640, marginTop:12}}>
           <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:6}}>
             <span className="badge"><span className="badge-dot"/>auto</span>
             <span className="small muted">model routed per message · sources open via ⓘ on any answer</span>
