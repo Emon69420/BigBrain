@@ -10,15 +10,23 @@ from routes.docs_routes import docs_bp
 from auth.routes import auth_bp
 from chat.routes import chat_bp
 
-ALLOWED_ORIGINS = ["http://localhost:3000"]
+def _allowed_origins():
+    raw = os.getenv("FRONTEND_ORIGINS", "http://localhost:3000")
+    return [o.strip() for o in raw.split(",") if o.strip()]
 
 
 def create_app():
     app = Flask(__name__)
     app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
-    CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True,
-         allow_headers=["Content-Type", "X-Org-Id", "Authorization"],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    # cross-site session cookies (frontend on another origin): None requires Secure + HttpOnly
+    app.config.update(
+        SESSION_COOKIE_SAMESITE="None",
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+    )
+    CORS(app, origins=_allowed_origins(), supports_credentials=True,
+         allow_headers=["Content-Type", "X-Org-Id", "Authorization", "ngrok-skip-browser-warning"],
+         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
          expose_headers=["Content-Type", "X-Org-Id"])
 
     @app.before_request

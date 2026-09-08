@@ -316,13 +316,16 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                      prompt, None, None, latency, error=err)
         raise
     # --- red team: adversarial review of the drafted answer, then flag-and-deliver ---
-    redteam_out = {"verdict": "pass", "findings": []}
+    redteam_out = {"verdict": "pass", "findings": [], "regenerated": False, "rejected_draft": None}
     try:
         from brain.redteam import review as redteam_review
         redteam_out = redteam_review(answer, evidence, tool_used, decision, org_id, question=text)
+        redteam_out.setdefault("regenerated", False)
+        redteam_out.setdefault("rejected_draft", None)
         tool_trace.append(f"redteam: {redteam_out['verdict']} ({len(redteam_out['findings'])} findings)")
         if redteam_out["verdict"] == "fail":
             # ONE bounded regenerate with findings injected, then deliver flagged whatever results
+            redteam_out["rejected_draft"] = answer[:300]
             try:
                 fix_prompt = (prompt + "\n\nRED TEAM REJECTED your draft for these reasons:\n- "
                               + "\n- ".join(redteam_out["findings"][:6])
@@ -332,12 +335,13 @@ def ask_question(text, user_dept="operations", org_id="default", request_id=None
                 log_llm_call(request_id, org_id, user_dept, task, model_key, model_id,
                              fix_prompt, answer2, usage2, elapsed_ms(t1))
                 answer = answer2
+                redteam_out["regenerated"] = True
                 tool_trace.append("redteam: regenerated once with findings injected")
             except Exception as e2:
                 tool_trace.append(f"redteam regenerate failed: {e2} — delivering flagged original")
     except Exception as e3:
         tool_trace.append(f"redteam harness failed open: {e3}")
-        redteam_out = {"verdict": "flag", "findings": [f"red-team unavailable: {e3}"]}
+        redteam_out = {"verdict": "flag", "findings": [f"red-team unavailable: {e3}"], "regenerated": False, "rejected_draft": None}
     out = {
         "task": task, "model": model_key, "model_id": model_id,
         "answer": answer, "mode": "harness-groq+localpg",
