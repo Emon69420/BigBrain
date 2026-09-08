@@ -123,8 +123,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase }){
           ))}
           {!messages.length && <div className="muted">No messages — ask about your docs. Try: "whats sop" or "What is inspection interval for P-204?"</div>}
         </div>
-        {phase && <div style={{marginTop:14, marginBottom:8}}><PhaseIndicator phase={phase}/></div>}
-        {showCard && <div style={{marginTop:10}}><TaskListCard msg={phase?null:lastAssistant} phase={phase} query={lastUser?.content}/></div>}
+        {phase && <div style={{marginTop:12, marginBottom:8}}><PhaseIndicator phase={phase}/></div>}
         <div style={{maxWidth:640, marginTop:12}}>
           <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:6}}>
             <span className="badge"><span className="badge-dot"/>auto</span>
