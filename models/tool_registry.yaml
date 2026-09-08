@@ -1,209 +1,38 @@
 tools:
-- name: compute_temperature_raise
-  path: backend/tools/custom/compute_temperature_raise.py
-  desc: Temperature rise calculator - computes time required to raise temperature
-    of a substance
-  full_desc: 'Temperature rise calculator - computes time required to raise temperature
-    of a substance
+- name: compute_hydraulic_power_in
+  path: backend/tools/custom/compute_hydraulic_power_in.py
+  desc: Hydraulic Power Calculator
+  full_desc: 'Hydraulic Power Calculator
 
-    Args: initial_temp_c (float), final_temp_c (float), mass_g (float), specific_heat_j_per_g_c
-    (float), power_w (float)
 
-    Returns: time_seconds (float)'
+    Computes hydraulic power in kilowatts from volumetric flow rate and pressure.'
   status: unverified
   version: 1
-  uses: 3
+  uses: 1
   created_by: auto
-- name: compute_total_energy_required
-  path: backend/tools/custom/compute_total_energy_required.py
-  desc: Energy calculator - computes total energy required to heat a substance
-  full_desc: 'Energy calculator - computes total energy required to heat a substance
+- name: compute_energy_consumption_in
+  path: backend/tools/custom/compute_energy_consumption_in.py
+  desc: Energy consumption calculator - computes energy in kWh from power and time
+  full_desc: 'Energy consumption calculator - computes energy in kWh from power and
+    time
 
-    Args: initial_temp_c (float), final_temp_c (float), mass_g (float), specific_heat_j_per_g_c
-    (float), power_w (float)
+    Args: power_kW (float), time_h (float)
 
-    Returns: energy_j (float)'
+    Returns: energy_kWh (float)'
   status: unverified
   version: 1
-  uses: 3
+  uses: 1
   created_by: auto
-- name: compute_microwave_runtime
-  path: backend/tools/custom/compute_microwave_runtime.py
-  desc: Microwave runtime calculator - computes heating time for given parameters
-  full_desc: 'Microwave runtime calculator - computes heating time for given parameters
+- name: compute_hydraulic_power_from
+  path: backend/tools/custom/compute_hydraulic_power_from.py
+  desc: Hydraulic power calculator - computes hydraulic power from flow rate and pressure
+  full_desc: 'Hydraulic power calculator - computes hydraulic power from flow rate
+    and pressure
 
-    Args: initial_temp_c (float), final_temp_c (float), mass_g (float), specific_heat_j_per_g_c
-    (float), power_w (float)
+    Args: flow_m3_per_s (float), pressure_pa (float)
 
-    Returns: runtime_seconds (float)'
-  status: unverified
-  version: 1
-  uses: 3
-  created_by: auto
-- name: compute_net_acceleration
-  path: backend/tools/custom/compute_net_acceleration.py
-  desc: Weight, net force, and acceleration calculator - computes weight, net force,
-    and acceleration from mass, gravity, and drag
-  full_desc: 'Weight, net force, and acceleration calculator - computes weight, net
-    force, and acceleration from mass, gravity, and drag
-
-    Args: mass (float), gravity (float), drag (float)
-
-    Returns: weight_N (float), net_force_N (float), acceleration_m_s2 (float)'
-  status: unverified
-  version: 1
-  uses: 7
-  created_by: auto
-- name: compute_torque_from_force
-  path: backend/tools/custom/compute_torque_from_force.py
-  desc: Compute torque from force and distance.
-  full_desc: 'Compute torque from force and distance.
-
-
-    Given a force in newtons and a perpendicular distance in meters, returns the torque
-    in newton‑meters.'
-  status: unverified
-  version: 1
-  uses: 11
-  created_by: auto
-- name: compute_tesla_battery_usage
-  path: backend/tools/custom/compute_tesla_battery_usage.py
-  desc: Tesla battery range estimator - computes estimated driving range for a Tesla
-    Model S
-  full_desc: 'Tesla battery range estimator - computes estimated driving range for
-    a Tesla Model S
-
-    Args:
-
-    Returns: range_miles (float)'
+    Returns: power_watts (float)'
   status: unverified
   version: 1
   uses: 2
-  created_by: auto
-- name: compute_litres_per_seconds
-  path: backend/tools/custom/compute_litres_per_seconds.py
-  desc: Tank fill calculator - computes fill rate and time
-  full_desc: 'Tank fill calculator - computes fill rate and time
-
-    Args: flow_m3_per_s (float), litres_per_m3 (float), tank_litres (float)
-
-    Returns: litres_per_sec (float), seconds_to_fill (float), minutes_to_fill (float)'
-  status: unverified
-  version: 1
-  uses: 8
-  created_by: auto
-- name: compute_maximum_height_of
-  path: backend/tools/custom/compute_maximum_height_of.py
-  desc: Maximum height calculator - computes max height of projectile thrown upward
-    from a given height
-  full_desc: 'Maximum height calculator - computes max height of projectile thrown
-    upward from a given height
-
-    Args: initial_velocity_m_s (float), initial_height_m (float), gravity_m_s2 (float)
-
-    Returns: max_height_m (float)'
-  status: unverified
-  version: 1
-  uses: 6
-  created_by: auto
-- name: compute_percent_battery_left
-  path: backend/tools/custom/compute_percent_battery_left.py
-  desc: Battery percentage calculator - returns current battery level as percentage
-  full_desc: 'Battery percentage calculator - returns current battery level as percentage
-
-    Args:
-
-    Returns: percent (float)'
-  status: unverified
-  version: 1
-  uses: 0
-  created_by: auto
-- name: compute_temperature_total_energy
-  path: backend/tools/custom/compute_temperature_total_energy.py
-  desc: Heating calculator - computes temperature rise, total energy required, and
-    runtime for heating water
-  full_desc: 'Heating calculator - computes temperature rise, total energy required,
-    and runtime for heating water
-
-    Args: mass_g (float), delta_T (float), specific_heat_J_per_g_C (float), power_W
-    (float)
-
-    Returns: temperature_rise_C (float), energy_J (float), runtime_s (float)'
-  status: unverified
-  version: 1
-  uses: 3
-  created_by: auto
-- name: compute_kinetic_energy
-  path: backend/tools/custom/compute_kinetic_energy.py
-  desc: Kinetic energy calculator - computes kinetic energy of a mass at a given velocity
-  full_desc: 'Kinetic energy calculator - computes kinetic energy of a mass at a given
-    velocity
-
-    Args: mass_kg (float), velocity_m_per_s (float)
-
-    Returns: kinetic_energy_joules (float)'
-  status: unverified
-  version: 1
-  uses: 5
-  created_by: auto
-- name: compute_kwh_consumed_and
-  path: backend/tools/custom/compute_kwh_consumed_and.py
-  desc: Battery consumption calculator - computes kWh consumed and remaining battery
-    percent after a trip
-  full_desc: 'Battery consumption calculator - computes kWh consumed and remaining
-    battery percent after a trip
-
-    Args: battery_kwh (float), consumption_wh_per_km (float), distance_km (float)
-
-    Returns: consumed_kwh (float), remaining_percent (float)'
-  status: unverified
-  version: 1
-  uses: 6
-  created_by: auto
-- name: compute_time_until_projectile
-  path: backend/tools/custom/compute_time_until_projectile.py
-  desc: Projectile time to ground calculator
-  full_desc: 'Projectile time to ground calculator
-
-    Args: initial_velocity (float), initial_height (float), gravity (float)
-
-    Returns: time_seconds (float)'
-  status: unverified
-  version: 1
-  uses: 1
-  created_by: auto
-- name: compute_final_amount_and
-  path: backend/tools/custom/compute_final_amount_and.py
-  desc: Compound interest calculator - computes final amount and total interest earned
-  full_desc: 'Compound interest calculator - computes final amount and total interest
-    earned
-
-    Args: principal (float), annual_rate_percent (float), years (int)
-
-    Returns: final_amount (float), total_interest (float)'
-  status: unverified
-  version: 1
-  uses: 5
-  created_by: auto
-- name: total_time_until_the
-  path: backend/tools/custom/total_time_until_the.py
-  desc: Time to impact calculator - computes total time until a ball hits the ground
-  full_desc: 'Time to impact calculator - computes total time until a ball hits the
-    ground
-
-    Args: initial_speed_m_per_s (float), initial_height_m (float), gravity_m_per_s2
-    (float)
-
-    Returns: total_time_s (float)'
-  status: unverified
-  version: 1
-  uses: 1
-  created_by: auto
-- name: compute_heat_duty_in
-  path: backend/tools/custom/compute_heat_duty_in.py
-  desc: Calculate heat duty in kilowatts.
-  full_desc: Calculate heat duty in kilowatts.
-  status: unverified
-  version: 1
-  uses: 1
   created_by: auto
