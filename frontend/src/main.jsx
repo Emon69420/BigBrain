@@ -199,7 +199,7 @@ function AppShell({ user, orgs, onLogout }){
           {view==="security" && <SecurityView/>}
           {view==="ingest" && (
             <div style={{width:"100%"}}>
-              <h2 style={{fontSize:22, margin:"0 0 6px", color:"var(--ink-app)"}}>Ingest</h2>
+              <h2 style={{fontSize:26, fontWeight:700, letterSpacing:"-0.02em", fontFamily:"var(--sans)", margin:"0 0 6px", color:"var(--ink-app)"}}>Ingest</h2>
               <p style={{color:"var(--muted-app)", fontSize:13}}>Files land in <strong style={{color:"var(--ink-app)"}}>{orgId}</strong> only. Org-divided, never cross-leaks.</p>
               <div className="card" style={{marginTop:16}}>
                 <div className="eyebrow" style={{marginBottom:10}}>File upload</div>

@@ -71,7 +71,7 @@ export function KBView(){
   return (
     <div style={{width:"100%"}}>
       <div style={{display:"flex", gap:10, alignItems:"center", flexWrap:"wrap"}}>
-        <h2 style={{margin:0, fontFamily:"var(--serif)", fontSize:28, color:"var(--ink-app)"}}>Knowledge Base</h2>
+        <h2 style={{margin:0, fontFamily:"var(--sans)", fontSize:26, fontWeight:700, letterSpacing:"-0.02em", color:"var(--ink-app)"}}>Knowledge Base</h2>
         <span className="badge" style={{background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)", color:"var(--muted-app-2)"}}>{graph.nodes.length} docs · {graph.edges.length} links</span>
         <span style={{flex:1}}/>
         <input className="input" style={{width:220, background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)"}} placeholder="search titles, tags…" value={q} onChange={e=>setQ(e.target.value)}/>
