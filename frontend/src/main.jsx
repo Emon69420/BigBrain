@@ -57,7 +57,7 @@ function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout })
     <aside className="sidebar">
       <div className="sidebar-brand" style={{gap:8, fontWeight:600, letterSpacing:"-0.01em"}}><span style={{display:"grid",placeItems:"center",color:"var(--muted-app)"}}><BrainMark size={18}/></span> BigBrain <span style={{marginLeft:"auto", fontSize:10, color:"var(--muted-app)", border:"1px solid rgba(255,255,255,.08)", background:"transparent", padding:"3px 7px", borderRadius:999, fontWeight:500, letterSpacing:".04em"}}>Sovereign</span></div>
       <div style={{padding:"12px 12px 0"}}>
-        <button className="btn" style={{width:"100%", borderRadius:12, fontWeight:600, justifyContent:"center", display:"flex", background:"linear-gradient(135deg,#6366F1,#7C3AED)", borderColor:"rgba(99,102,241,.45)", color:"#fff", boxShadow:"0 2px 10px rgba(99,102,241,.25)"}} onClick={onNew}>+ New chat</button>
+        <button className="btn" style={{width:"100%", borderRadius:8, fontWeight:600, justifyContent:"center", display:"flex", background:"linear-gradient(135deg,#6366F1,#7C3AED)", borderColor:"rgba(99,102,241,.45)", color:"#fff", boxShadow:"0 2px 10px rgba(99,102,241,.25)"}} onClick={onNew}>+ New chat</button>
         <div style={{fontSize:11, color:"var(--muted-app)", marginTop:8, paddingLeft:2, fontWeight:400, letterSpacing:"0.01em"}}>{threads.length} threads · org-isolated</div>
       </div>
       <nav className="sidebar-nav threads-nav">
@@ -188,7 +188,7 @@ function AppShell({ user, orgs, onLogout }){
         <div className="content">
           {view==="chat" && (
             <>
-              {!cid && <div className="card" style={{marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, borderStyle:"dashed"}}><span style={{fontSize:13, color:"#6B7280"}}>Pick a chat from the panel, or start a new conversation.</span><button className="btn" style={{padding:"6px 14px", borderRadius:999, background:"#08090C", color:"#fff", borderColor:"#08090C"}} onClick={handleNew}>+ New chat</button></div>}
+              {!cid && <div className="card" style={{marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, borderStyle:"dashed"}}><span style={{fontSize:13, color:"#6B7280"}}>Pick a chat from the panel, or start a new conversation.</span><button className="btn" style={{padding:"6px 14px", borderRadius:8, background:"#08090C", color:"#fff", borderColor:"#08090C"}} onClick={handleNew}>+ New chat</button></div>}
               <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase} buildPrompt={buildPrompt}/>
               <EvidencePanel open={!!evMsg} onClose={()=>{setEvMsg(null); setHighlight(null);}} msg={evMsg} highlightDoc={highlight}/>
             </>
