@@ -124,7 +124,7 @@ function ReasoningBody({ msg }){
     <div style={{marginTop:6}}>
       {lines.map((l,i)=> typeof l==="string"
         ? <div key={i} className="reason-line"><span className="reason-dot"/>{toLocal(l)}</div>
-        : <div key={i} className={`reason-line${l.tool?" toolok":""}`}><span className="reason-dot"/>{l.tool?"✓ ":""}{toLocal(l.text)}</div>)}
+        : <div key={i} className={`reason-line${l.tool?" toolok":""}${/saved/i.test(l.text)?" highlight-saved":""}`}><span className="reason-dot"/>{l.tool?"✓ ":""}{toLocal(l.text)}</div>)}
     </div>
   );
 }
@@ -214,20 +214,20 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt 
               <div key={m.id} className="chat-turn user">{m.content}</div>
             ) : (
               <div key={m.id} className="chat-turn">
-                <div><ModelOrb model_key={m.model_key}/><span className="badge mono" style={{fontSize:11}}>{fmtModel(m.model_key)||"model"}</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:0}}><ModelOrb model_key={m.model_key}/><span className="chat-badge-subtle mono">{fmtModel(m.model_key)||"model"}</span></div>
                 <div className="answer" style={{marginTop:8,whiteSpace:"pre-wrap"}}>{renderWithCites(toLocal(m.content), (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
                 <div className="meta">
                   {(m.redteam && (m.redteam.verdict === "fail" || (m.redteam.verdict === "flag" && (m.redteam.findings||[]).length))) ? (
-                    <span className="badge"><span className="badge-dot critical"/>Red Team {m.redteam.verdict} — answer unverified</span>
+                    <span className="verified-plain"><span className="dot" style={{background:"var(--risk-critical)"}}/>Red Team {m.redteam.verdict} — answer unverified</span>
                   ) : m.tool_used && m.tool_used.error ? (
-                    <span className="badge"><span className="badge-dot critical"/>Tool failed — answer unverified</span>
+                    <span className="verified-plain"><span className="dot" style={{background:"var(--risk-critical)"}}/>Tool failed — answer unverified</span>
                   ) : m.tool_used && m.tool_used.result ? (
-                    <span className="badge"><span className="badge-dot low"/>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
+                    <span className="verified-plain"><span className="dot"/>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
                   ) : (
-                    <span className="badge"><span className={`badge-dot ${m.general_knowledge?"":"low"}`} style={m.general_knowledge?{background:"var(--st-unverified)"}:null}/>{m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
+                    <span className="verified-plain"><span className="dot" style={m.general_knowledge?{background:"var(--st-unverified)"}:null}/>{m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
                   )}
-                  {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
-                  {(m.evidence||[]).some(e=>e.board) && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>{ const b=(m.evidence.find(e=>e.board)||{}); if(b.doc_id) setBoardRef({id:b.doc_id, mid:m.id}); }}>▦ board</button>}
+                  {m.evidence && <button className="sources-quiet" onClick={()=>onInfo(m)}>ⓘ sources</button>}
+                  {(m.evidence||[]).some(e=>e.board) && <button className="sources-quiet" onClick={()=>{ const b=(m.evidence.find(e=>e.board)||{}); if(b.doc_id) setBoardRef({id:b.doc_id, mid:m.id}); }}>▦ board</button>}
                 </div>
                 <HowComputed msg={m}/>
               </div>
