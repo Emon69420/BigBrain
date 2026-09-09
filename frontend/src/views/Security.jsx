@@ -24,7 +24,7 @@ export function SecurityView(){
   }
   async function handleCopy(){
     if(!allow) return;
-    const text=`Local: ${allow.local.join(", ")}\nModel API: ${allow.model_api}`;
+    const text=`Local: ${allow.local.join(", ")}`;
     try{ await navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),1500); }catch{}
   }
   if(!st) return <div style={{padding:16,color:"var(--muted-app)"}}>Loading security…{msg && <p className="small muted">{msg}</p>}</div>;
@@ -116,7 +116,6 @@ export function SecurityView(){
         {allow ? (
           <div className="sec-code-panel">
             <div className="sec-code-line"><span className="sec-code-num">1</span><span className="sec-code-key">Local:</span> <span className="sec-code-green">{allow.local.join(", ")}</span></div>
-            <div className="sec-code-line"><span className="sec-code-num">2</span><span className="sec-code-key">Model API:</span> <span className="sec-code-green">{allow.model_api}</span></div>
           </div>
         ) : (
           <div className="sec-code-panel" style={{color:"var(--muted-app)"}}>Loading allowlist…</div>
