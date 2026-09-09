@@ -33,6 +33,11 @@ python app.py   # http://localhost:8000
 cd frontend
 npm install
 npm run dev     # http://localhost:3000
+
+# synthetic oil-operations knowledge base for RAG demos (one org, 300 docs)
+python backend/seed_oil_kb.py --org-id indianoil-demo
+# If a long embedding run is interrupted, continue without duplicates:
+python backend/seed_oil_kb.py --org-id indianoil-demo --resume
 ```
 
 `.env` (not committed, see `.env.example`): `GROQ_API_KEY`, `DATABASE_URL`, `EMBED_MODEL`.
@@ -46,6 +51,12 @@ npm run dev     # http://localhost:3000
 - `POST /tools/run` — `{code}` -> `{ok, stdout}`
 - `POST /tools/create` — `{name, code, sample_input}` -> `{saved, path}`
 - `GET /tools` — list saved tools
+
+The synthetic seed creates one `Indian Oil Demo Operations` organisation with
+300 clearly marked fictional references covering zones, ownership, SOPs,
+maintenance, safety, process operations, laboratory, logistics, environment,
+and governance. It uses the normal hierarchical chunking and local embedding
+path, and only resets documents whose title starts with `[SYNTHETIC OIL DEMO]`.
 
 Frontend sends `X-Org-Id` (`VITE_ORG_ID` or `default`). Upload via dashed file box (`.txt/.md/.csv`) or paste form below chat. Ask box is always grounded — `Sources (n)` appears under every answer.
 
