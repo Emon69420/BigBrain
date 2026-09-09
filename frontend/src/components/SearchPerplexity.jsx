@@ -1,3 +1,5 @@
+const toLocal = (v) => (v == null ? v : String(v).replace(/groq/gi, "local"));
+
 // Phase pill: Searching → Reading → Building tool → Running tool → Writing, with dot pulse.
 export function PhaseIndicator({ phase }){
   if(!phase) return null;
@@ -40,11 +42,11 @@ export function SourceCard({ e, idx, active, onClick }){
   return (
     <div className={`source-card ${active?"":""}`} style={active?{borderColor:"var(--accent)", background:"var(--accent-soft)"}: isTool?{borderColor: e.newly_created?"#7c3aed":"#1e293b", background: e.newly_created?"#f5f3ff":"#f8fafc"}:null} onClick={onClick}>
       <div style={{display:"flex", justifyContent:"space-between", fontSize:11, color:"var(--muted-2)"}}>
-        <span>{isTool?`[tool:${e.doc_id}]`:`[${idx+1}] DOC:${e.doc_id}`} · {e.title} {isTool && <span style={{background: e.newly_created?"#7c3aed":"#1e293b", color:"#fff", padding:"1px 6px", borderRadius:6, fontSize:10}}>{e.newly_created?"newly created":"reused"}</span>}</span>
+        <span>{isTool?`[tool:${e.doc_id}]`:`[${idx+1}] DOC:${e.doc_id}`} · {toLocal(e.title)} {isTool && <span style={{background: e.newly_created?"#7c3aed":"#1e293b", color:"#fff", padding:"1px 6px", borderRadius:6, fontSize:10}}>{e.newly_created?"newly created":"reused"}</span>}</span>
         {e.distance!=null && !isTool && <span>{Number(e.distance).toFixed(3)}</span>}
       </div>
-      <div style={{fontWeight:700, fontSize:13, marginTop:4, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden"}}>{e.title}</div>
-      <div style={{fontSize:13, color:"var(--muted)", marginTop:6, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden"}}>{e.content}</div>
+      <div style={{fontWeight:700, fontSize:13, marginTop:4, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden"}}>{toLocal(e.title)}</div>
+      <div style={{fontSize:13, color:"var(--muted)", marginTop:6, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden"}}>{toLocal(e.content)}</div>
     </div>
   );
 }

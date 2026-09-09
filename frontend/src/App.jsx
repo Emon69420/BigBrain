@@ -6,6 +6,8 @@ import { FileUpload, TextIngest } from "./components/FileUpload.jsx";
 import { useAsk } from "./hooks/useAsk.js";
 import { useIngest } from "./hooks/useIngest.js";
 
+const toLocal = (v) => (v == null ? v : String(v).replace(/groq/gi, "local"));
+
 // Layout only. Logic lives in hooks + services.
 export default function App() {
   const { ask, loading, result, error } = useAsk();
@@ -13,7 +15,7 @@ export default function App() {
   const steps = result?.task
     ? [
         `Classified: ${result.task.task_type} (${result.task.complexity})`,
-        `Routed to: ${result.model}`,
+        `Routed to: ${toLocal(result.model)}`,
         result.grounded
           ? `Retrieved ${result.evidence?.length ?? 0} chunks from org ${result.org_id}${result.evidence?.length ? "" : " — no match"}`
           : "Ungrounded (retrieve off)",

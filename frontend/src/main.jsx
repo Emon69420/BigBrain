@@ -32,7 +32,7 @@ function IconRail({ view, setView }){
   const soon=[["audit","Audit (soon)"]];
   return (
     <div className="icon-rail" role="navigation" aria-label="Primary">
-      <div className="rail-mark" title="BigBrain"><BrainMark size={22}/></div>
+      <div title="BigBrain" style={{width:32,height:32,display:"grid",placeItems:"center",color:"var(--muted-app)",marginBottom:6}}><BrainMark size={20}/></div>
       {items.map(([k,label])=> (
         <div key={k} className={`rail-icon ${view===k?"active":""}`} title={label} aria-label={label} role="button" tabIndex={0}
           onClick={()=>setView(k)} onKeyDown={e=>{ if(e.key==="Enter") setView(k); }}>{RAIL_ICONS[k]}</div>
@@ -55,10 +55,10 @@ function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout })
   }
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand"><span className="brand-mark"><BrainMark size={18}/></span> BigBrain <span style={{marginLeft:"auto", fontSize:10, color:"#A5B4FC", border:"1px solid rgba(255,255,255,.08)", background:"rgba(255,255,255,.06)", padding:"3px 7px", borderRadius:999, fontWeight:600, letterSpacing:".04em"}}>Sovereign</span></div>
+      <div className="sidebar-brand" style={{gap:8, fontWeight:600, letterSpacing:"-0.01em"}}><span style={{display:"grid",placeItems:"center",color:"var(--muted-app)"}}><BrainMark size={18}/></span> BigBrain <span style={{marginLeft:"auto", fontSize:10, color:"var(--muted-app)", border:"1px solid rgba(255,255,255,.08)", background:"transparent", padding:"3px 7px", borderRadius:999, fontWeight:500, letterSpacing:".04em"}}>Sovereign</span></div>
       <div style={{padding:"12px 12px 0"}}>
-        <button className="btn btn-primary" style={{width:"100%", borderRadius:999, fontWeight:700, justifyContent:"center", display:"flex"}} onClick={onNew}>+ New chat</button>
-        <div style={{fontSize:11, color:"#7C819A", marginTop:8, paddingLeft:2}}> {threads.length} threads · org-isolated</div>
+        <button className="btn" style={{width:"100%", borderRadius:8, fontWeight:600, justifyContent:"center", display:"flex", background:"linear-gradient(135deg,#6366F1,#7C3AED)", borderColor:"rgba(99,102,241,.45)", color:"#fff", boxShadow:"0 2px 10px rgba(99,102,241,.25)"}} onClick={onNew}>+ New chat</button>
+        <div style={{fontSize:11, color:"var(--muted-app)", marginTop:8, paddingLeft:2, fontWeight:400, letterSpacing:"0.01em"}}>{threads.length} threads · org-isolated</div>
       </div>
       <nav className="sidebar-nav threads-nav">
         {threads.map(t=>(
@@ -87,7 +87,7 @@ function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout })
             <div style={{fontSize:11, color:"#7C819A", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{user?.email || ""}</div>
           </div>
         </div>
-        <button className="btn btn-ghost" style={{marginTop:10, paddingLeft:0, fontSize:12}} onClick={onLogout}>Sign out →</button>
+        <button style={{marginTop:10, padding:0, fontSize:12, color:"var(--muted-app)", background:"transparent", border:"none", cursor:"pointer", fontWeight:400}} onClick={onLogout}>Sign out →</button>
       </div>
     </aside>
   );
@@ -176,19 +176,19 @@ function AppShell({ user, orgs, onLogout }){
               {orgs.map(o=> <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </div>
-          <div style={{display:"flex", gap:8, alignItems:"center"}}>
-            {groundedState==="grounded" && <span className="badge"><span className="badge-dot low"/>grounded</span>}
-            {groundedState==="verified" && <span className="badge"><span className="badge-dot low"/>verified</span>}
-            {groundedState==="unverified" && <span className="badge"><span className="badge-dot" style={{background:"var(--st-unverified)"}}/>unverified</span>}
-            {groundedState==="failed" && <span className="badge"><span className="badge-dot critical"/>failed</span>}
-            {groundedState===null && <span className="badge"><span className="badge-dot"/>idle</span>}
-            <button className="btn btn-ghost" style={{fontSize:12, padding:"6px 10px", border:"1px solid rgba(255,255,255,.08)", borderRadius:999, background:"rgba(255,255,255,.04)"}} onClick={onLogout} title="Sign out">Sign out →</button>
+          <div style={{display:"flex", gap:14, alignItems:"center"}}>
+            {groundedState==="grounded" && <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"var(--muted-app)",fontWeight:500}}><span style={{width:6,height:6,borderRadius:999,background:"var(--green)",display:"inline-block"}}/>grounded</span>}
+            {groundedState==="verified" && <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"var(--muted-app)",fontWeight:500}}><span style={{width:6,height:6,borderRadius:999,background:"var(--green)",display:"inline-block"}}/>Verified</span>}
+            {groundedState==="unverified" && <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"var(--muted-app)",fontWeight:500}}><span style={{width:6,height:6,borderRadius:999,background:"var(--st-unverified)",display:"inline-block"}}/>unverified</span>}
+            {groundedState==="failed" && <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"var(--muted-app)",fontWeight:500}}><span style={{width:6,height:6,borderRadius:999,background:"var(--risk-critical)",display:"inline-block"}}/>failed</span>}
+            {groundedState===null && <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"var(--muted-app)",fontWeight:500}}><span style={{width:6,height:6,borderRadius:999,background:"var(--muted-app)",display:"inline-block"}}/>idle</span>}
+            <button style={{background:"transparent",border:"none",color:"var(--muted-app)",fontSize:12,fontWeight:500,cursor:"pointer",padding:"4px 6px"}} onClick={onLogout} title="Sign out">Sign out →</button>
           </div>
         </div>
         <div className="content">
           {view==="chat" && (
             <>
-              {!cid && <div className="card" style={{marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, borderStyle:"dashed"}}><span style={{fontSize:13, color:"#6B7280"}}>Pick a chat from the panel, or start a new conversation.</span><button className="btn" style={{padding:"6px 14px", borderRadius:999, background:"#08090C", color:"#fff", borderColor:"#08090C"}} onClick={handleNew}>+ New chat</button></div>}
+              {!cid && <div className="card" style={{marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, borderStyle:"dashed"}}><span style={{fontSize:13, color:"#6B7280"}}>Pick a chat from the panel, or start a new conversation.</span><button className="btn" style={{padding:"6px 14px", borderRadius:8, background:"transparent", color:"#fff", border:"1px solid #fff"}} onClick={handleNew}>+ New chat</button></div>}
               <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase} buildPrompt={buildPrompt}/>
               <EvidencePanel open={!!evMsg} onClose={()=>{setEvMsg(null); setHighlight(null);}} msg={evMsg} highlightDoc={highlight}/>
             </>
@@ -199,7 +199,7 @@ function AppShell({ user, orgs, onLogout }){
           {view==="security" && <SecurityView/>}
           {view==="ingest" && (
             <div style={{width:"100%"}}>
-              <h2 style={{fontSize:22, margin:"0 0 6px", color:"var(--ink-app)"}}>Ingest</h2>
+              <h2 style={{fontSize:26, fontWeight:700, letterSpacing:"-0.02em", fontFamily:"var(--sans)", margin:"0 0 6px", color:"var(--ink-app)"}}>Ingest</h2>
               <p style={{color:"var(--muted-app)", fontSize:13}}>Files land in <strong style={{color:"var(--ink-app)"}}>{orgId}</strong> only. Org-divided, never cross-leaks.</p>
               <div className="card" style={{marginTop:16}}>
                 <div className="eyebrow" style={{marginBottom:10}}>File upload</div>

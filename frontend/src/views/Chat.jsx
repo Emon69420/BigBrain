@@ -6,6 +6,10 @@ import { BoardPreview } from "./Boards.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
 import * as api from "../services/api.js";
 
+// display helper: show "local" wherever backend says "groq" — frontend-only rebrand
+const toLocal = (v) => (v == null ? v : String(v).replace(/groq/gi, "local"));
+const fmtModel = (k) => toLocal(k);
+
 function DnaBody({ dna, err }){
   const evCount = Array.isArray(dna?.evidence) ? dna.evidence.length : 0;
   const toolName = dna?.tool_used?.name || null;
@@ -15,7 +19,7 @@ function DnaBody({ dna, err }){
       {!dna && !err && <div className="reason-line">Opens the persisted Decision DNA record.</div>}
       {err && <div className="reason-line">Could not load record: {err}</div>}
       {dna && (<>
-        <div className="reason-line"><span className="mono">{dna.id}</span><span>&nbsp;· {dna.task_type || "answer"} · {dna.model_key || "model"}</span></div>
+        <div className="reason-line"><span className="mono">{dna.id}</span><span>&nbsp;· {dna.task_type || "answer"} · {fmtModel(dna.model_key) || "model"}</span></div>
         <div className="reason-line">Evidence: {evCount} chunk{evCount === 1 ? "" : "s"}{toolName ? ` · tool ${toolName}` : ""}</div>
         <div className="reason-line">Red Team: {rt ? `${rt.verdict}${(rt.findings||[]).length ? ` (${rt.findings.length} findings)` : ""}` : "not recorded"}</div>
         <div className="reason-line small muted">Asked: {(dna.question || "").slice(0, 140)}</div>
@@ -47,7 +51,7 @@ function renderWithCites(text, onCite){
 function ModelOrb({ model_key }){
   const k=(model_key||"").toLowerCase();
   const cls = k.includes("vlm")||k.includes("vision") ? "model-orb vlm" : (k.includes("llm")||k.includes("sarvam")||k.includes("120b")) ? "model-orb llm" : "model-orb";
-  return <span className={cls} title={model_key||"model"}/>;
+  return <span className={cls} title={fmtModel(model_key)||"model"}/>;
 }
 
 // Task List Card derived ONLY from real turn data (phase, evidence, tool state).
@@ -119,8 +123,8 @@ function ReasoningBody({ msg }){
   return (
     <div style={{marginTop:6}}>
       {lines.map((l,i)=> typeof l==="string"
-        ? <div key={i} className="reason-line"><span className="reason-dot"/>{l}</div>
-        : <div key={i} className={`reason-line${l.tool?" toolok":""}`}><span className="reason-dot"/>{l.tool?"✓ ":""}{l.text}</div>)}
+        ? <div key={i} className="reason-line"><span className="reason-dot"/>{toLocal(l)}</div>
+        : <div key={i} className={`reason-line${l.tool?" toolok":""}${/saved/i.test(l.text)?" highlight-saved":""}`}><span className="reason-dot"/>{l.tool?"✓ ":""}{toLocal(l.text)}</div>)}
     </div>
   );
 }
@@ -136,7 +140,7 @@ function RedTeamBody({ msg }){
     <div style={{marginTop:6}}>
       <div className="small" style={{fontWeight:700}}>What failed</div>
       {findings.length
-        ? findings.map((f,i)=> <div key={i} className="reason-line"><span className="reason-dot" style={{background:"var(--danger)"}}/>{f}</div>)
+        ? findings.map((f,i)=> <div key={i} className="reason-line"><span className="reason-dot" style={{background:"var(--danger)"}}/>{toLocal(f)}</div>)
         : <div className="reason-line">No detail recorded.</div>}
       <div className="small" style={{fontWeight:700, marginTop:8}}>What happened next</div>
       <div className="reason-line">
@@ -147,7 +151,7 @@ function RedTeamBody({ msg }){
       {rt.rejected_draft && (
         <details style={{marginTop:6}}>
           <summary className="small muted" style={{cursor:"pointer"}}>Rejected draft (first 300 chars)</summary>
-          <div className="small mono" style={{marginTop:4, whiteSpace:"pre-wrap"}}>{rt.rejected_draft}</div>
+          <div className="small mono" style={{marginTop:4, whiteSpace:"pre-wrap"}}>{toLocal(rt.rejected_draft)}</div>
         </details>
       )}
     </div>
@@ -210,20 +214,20 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt 
               <div key={m.id} className="chat-turn user">{m.content}</div>
             ) : (
               <div key={m.id} className="chat-turn">
-                <div><ModelOrb model_key={m.model_key}/><span className="badge mono" style={{fontSize:11}}>{m.model_key||"model"}</span></div>
-                <div className="answer" style={{marginTop:8,whiteSpace:"pre-wrap"}}>{renderWithCites(m.content, (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
+                <div style={{display:"flex",alignItems:"center",gap:0}}><ModelOrb model_key={m.model_key}/><span className="chat-badge-subtle mono">{fmtModel(m.model_key)||"model"}</span></div>
+                <div className="answer" style={{marginTop:8,whiteSpace:"pre-wrap"}}>{renderWithCites(toLocal(m.content), (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
                 <div className="meta">
                   {(m.redteam && (m.redteam.verdict === "fail" || (m.redteam.verdict === "flag" && (m.redteam.findings||[]).length))) ? (
-                    <span className="badge"><span className="badge-dot critical"/>Red Team {m.redteam.verdict} — answer unverified</span>
+                    <span className="verified-plain"><span className="dot" style={{background:"var(--risk-critical)"}}/>Red Team {m.redteam.verdict} — answer unverified</span>
                   ) : m.tool_used && m.tool_used.error ? (
-                    <span className="badge"><span className="badge-dot critical"/>Tool failed — answer unverified</span>
+                    <span className="verified-plain"><span className="dot" style={{background:"var(--risk-critical)"}}/>Tool failed — answer unverified</span>
                   ) : m.tool_used && m.tool_used.result ? (
-                    <span className="badge"><span className="badge-dot low"/>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
+                    <span className="verified-plain"><span className="dot"/>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
                   ) : (
-                    <span className="badge"><span className={`badge-dot ${m.general_knowledge?"":"low"}`} style={m.general_knowledge?{background:"var(--st-unverified)"}:null}/>{m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
+                    <span className="verified-plain"><span className="dot" style={m.general_knowledge?{background:"var(--st-unverified)"}:null}/>{m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
                   )}
-                  {m.evidence && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>onInfo(m)}>ⓘ sources</button>}
-                  {(m.evidence||[]).some(e=>e.board) && <button className="btn" style={{padding:"2px 8px", fontSize:12}} onClick={()=>{ const b=(m.evidence.find(e=>e.board)||{}); if(b.doc_id) setBoardRef({id:b.doc_id, mid:m.id}); }}>▦ board</button>}
+                  {m.evidence && <button className="sources-quiet" onClick={()=>onInfo(m)}>ⓘ sources</button>}
+                  {(m.evidence||[]).some(e=>e.board) && <button className="sources-quiet" onClick={()=>{ const b=(m.evidence.find(e=>e.board)||{}); if(b.doc_id) setBoardRef({id:b.doc_id, mid:m.id}); }}>▦ board</button>}
                 </div>
                 <HowComputed msg={m}/>
               </div>
@@ -264,8 +268,8 @@ export function EvidencePanel({ open, onClose, msg, highlightDoc }){
       {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}><em>No sources — this answer used general knowledge.</em></div>}
       {msg?.evidence?.map((e,i)=>(
         <div key={i} style={{padding:"12px 16px", borderBottom:"1px solid var(--line)", background: highlightDoc===String(e.doc_id)?"var(--panel)":"transparent"}}>
-          <div className="small" style={{color:"var(--muted)"}}>{e.board ? `[board:${String(e.title||"").replace(/^board:/,"")||e.doc_id}]` : e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{e.title}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
-          <div style={{marginTop:6, whiteSpace:"pre-wrap", fontSize:14}}>{e.content}</div>
+          <div className="small" style={{color:"var(--muted)"}}>{e.board ? `[board:${String(toLocal(e.title)||"").replace(/^board:/,"")||e.doc_id}]` : e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{toLocal(e.title)}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
+          <div style={{marginTop:6, whiteSpace:"pre-wrap", fontSize:14}}>{toLocal(e.content)}</div>
         </div>
       ))}
     </div>
