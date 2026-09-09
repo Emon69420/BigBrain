@@ -166,6 +166,7 @@ select.input{width:auto}
 .kb-node circle{fill:#101218;stroke:#2A2E38;stroke-width:1.5}
 .kb-node text{fill:#EDEEF2;font-size:12px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif}
 .kb-node .kb-sub{fill:#8A8F9C;font-size:10px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+.kb-node text{pointer-events:none}
 .kb-node.dim{opacity:.35}
 .kb-edge{stroke:#2A2E38;stroke-width:1}
 .kb-edge.hot{stroke:#EDEEF2}

@@ -11,6 +11,8 @@ export function GraphCanvas({ nodes, edges, selectedId, colorMap, onSelect, pinn
   const [size, setSize] = useState({ w: 800, h: 520 });
   const [hoverId, setHoverId] = useState(null);
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panRef = useRef(null);
 
   const simNodes = useMemo(() => nodes.map((n) => ({ ...n, r: 14 + Math.min(22, (n.chunks || 0) * 4) })), [nodes]);
   const simLinks = useMemo(() => edges.map((e) => ({ source: e.a, target: e.b, weight: e.weight, tags: e.tags })), [edges]);
@@ -103,19 +105,42 @@ export function GraphCanvas({ nodes, edges, selectedId, colorMap, onSelect, pinn
 
   function wheelZoom(e) {
     e.preventDefault();
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+      setPan((p) => ({ x: p.x - e.deltaX - (e.shiftKey ? e.deltaY : 0), y: p.y }));
+      return;
+    }
     changeZoom(e.deltaY > 0 ? -0.1 : 0.1);
   }
 
+  function startPan(e) {
+    if (e.target !== e.currentTarget && e.target.tagName !== "svg") return;
+    const start = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+    panRef.current = start;
+    const move = (ev) => setPan({ x: start.px + ev.clientX - start.x, y: start.py + ev.clientY - start.y });
+    const end = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", end);
+      panRef.current = null;
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", end);
+  }
+
+  function resetView() {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }
+
   return (
-    <div ref={ref} className="kb-canvas" onWheel={wheelZoom}>
+    <div ref={ref} className="kb-canvas" onWheel={wheelZoom} onMouseDown={startPan}>
       <div className="kb-zoom-controls" aria-label="Graph zoom controls">
         <button type="button" onClick={() => changeZoom(0.15)} aria-label="Zoom in">+</button>
         <span>{Math.round(zoom * 100)}%</span>
         <button type="button" onClick={() => changeZoom(-0.15)} aria-label="Zoom out">−</button>
-        <button type="button" onClick={() => setZoom(1)} aria-label="Reset zoom">Reset</button>
+        <button type="button" onClick={resetView} aria-label="Reset view">Reset</button>
       </div>
       <svg width={size.w} height={size.h} role="img" aria-label="Knowledge graph" style={{ display: "block" }}>
-        <g transform={`translate(${size.w / 2} ${size.h / 2}) scale(${zoom}) translate(${-size.w / 2} ${-size.h / 2})`}>
+        <g transform={`translate(${pan.x} ${pan.y}) translate(${size.w / 2} ${size.h / 2}) scale(${zoom}) translate(${-size.w / 2} ${-size.h / 2})`}>
         {simLinks.map((l, i) => {
           const a = typeof l.source === "object" ? l.source.id : l.source;
           const b = typeof l.target === "object" ? l.target.id : l.target;
@@ -150,7 +175,7 @@ export function GraphCanvas({ nodes, edges, selectedId, colorMap, onSelect, pinn
               <title>{n.title} — {n.dept} · {n.chunks} chunks</title>
               <circle r={n.r} fill={col} fillOpacity={dim ? 0.08 : 0.2} stroke={col} strokeWidth={isSel ? 2.8 : 1.8} opacity={dim ? 0.35 : 1} />
               {pinned[n.id] && <circle r={2.5} fill="var(--muted)" cx={n.r - 2} cy={-n.r + 2} />}
-              <text y={n.r + 15} textAnchor="middle">{n.title}</text>
+              <text y={n.r + 15} textAnchor="middle">{n.title.length > 24 ? `${n.title.slice(0, 22)}…` : n.title}</text>
             </g>
           );
         })}
