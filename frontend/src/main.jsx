@@ -62,7 +62,10 @@ function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout })
       </div>
       <nav className="sidebar-nav threads-nav">
         {threads.map(t=>(
-          <div key={t.id} className={`nav-item thread-item ${cid===t.id?"active":""}`}>
+          <div key={t.id} className={`nav-item thread-item ${cid===t.id?"active":""}`} role="button" tabIndex={0}
+            aria-current={cid===t.id ? "page" : undefined}
+            onClick={()=>onSelect(t.id)}
+            onKeyDown={e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); onSelect(t.id); } }}>
             {editing===t.id ? (
               <input className="input" style={{padding:"4px 8px", fontSize:13}} value={draft} autoFocus
                 onChange={e=>setDraft(e.target.value)}
@@ -71,8 +74,8 @@ function ChatsPanel({ threads, cid, onSelect, onNew, onRename, user, onLogout })
                 onClick={e=>e.stopPropagation()}/>
             ) : (
               <>
-                <span className="thread-title" onClick={()=>onSelect(t.id)} title={t.title}>{t.title}</span>
-                <span className="thread-rename" title="Rename" onClick={()=>startRename(t)}>✎</span>
+                <span className="thread-title" title={t.title}>{t.title}</span>
+                <span className="thread-rename" title="Rename" onClick={e=>{e.stopPropagation(); startRename(t);}}>✎</span>
               </>
             )}
           </div>
@@ -166,7 +169,7 @@ function AppShell({ user, orgs, onLogout }){
     <div className="shell" style={{gridTemplateColumns: view==="chat" ? "56px 260px 1fr" : "56px 1fr"}}>
       <IconRail view={view} setView={setView}/>
       {view==="chat" && (
-        <ChatsPanel threads={threads} cid={cid} onSelect={(id)=>{ setCid(id); }} onNew={handleNew} onRename={handleRename} user={user} onLogout={onLogout}/>
+              <ChatsPanel threads={threads} cid={cid} onSelect={(id)=>{ setEvMsg(null); setMessages([]); setCid(id); }} onNew={handleNew} onRename={handleRename} user={user} onLogout={onLogout}/>
       )}
       <div className="main-col">
         <div className="topbar">
