@@ -2,29 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import * as api from "../services/api.js";
 import { GraphCanvas } from "../components/GraphCanvas.jsx";
 
-// Muted categorical palette — never uses risk/state colors (green/yellow/orange/red).
-const COMPONENT_PALETTE = ["#7d8aa5", "#a89c8c", "#8f7fb8", "#6b9e9e", "#b08aa5", "#7fa37a", "#88a0b8", "#b59a7d"];
+// Stable category palette. Colors identify departments, not risk or status.
+const COMPONENT_PALETTE = ["#818cf8", "#38bdf8", "#2dd4bf", "#a78bfa", "#f472b6", "#f59e0b", "#34d399", "#fb7185", "#60a5fa", "#c084fc"];
 
-function componentColors(nodes, edges) {
-  const adj = {};
-  nodes.forEach((n) => { adj[n.id] = []; });
-  edges.forEach((e) => { adj[e.a]?.push(e.b); adj[e.b]?.push(e.a); });
-  const comp = {};
-  let ci = 0;
-  for (const n of nodes) {
-    if (comp[n.id] !== undefined) continue;
-    const queue = [n.id];
-    comp[n.id] = ci;
-    while (queue.length) {
-      const cur = queue.pop();
-      for (const nb of (adj[cur] || [])) {
-        if (comp[nb] === undefined) { comp[nb] = ci; queue.push(nb); }
-      }
-    }
-    ci++;
-  }
+function componentColors(nodes) {
+  const groups = [...new Set(nodes.map((n) => n.dept || "other"))].sort();
   const map = {};
-  for (const n of nodes) map[n.id] = COMPONENT_PALETTE[comp[n.id] % COMPONENT_PALETTE.length];
+  for (const n of nodes) map[n.id] = COMPONENT_PALETTE[groups.indexOf(n.dept || "other") % COMPONENT_PALETTE.length];
   return map;
 }
 
@@ -45,7 +29,7 @@ export function KBView(){
 
   const depts=useMemo(()=>["all",...new Set(graph.nodes.map(n=>n.dept))],[graph]);
   // stable colors computed on the FULL graph so filtering never recolors
-  const colorMap=useMemo(()=>componentColors(graph.nodes, graph.edges),[graph]);
+  const colorMap=useMemo(()=>componentColors(graph.nodes),[graph.nodes]);
   const visNodes=useMemo(()=>{
     return graph.nodes.filter(n=>{
       if(dept!=="all" && n.dept!==dept) return false;

@@ -156,8 +156,12 @@ select.input{width:auto}
 .two-col{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
 @media(max-width:1000px){.two-col{grid-template-columns:1fr} .sources-panel{position:static}}
 /* KB graph canvas — PRESERVED EXACTLY (do not theme) + wrapper polish around it */
-.kb-canvas{position:relative;width:100%;height:420px;min-height:420px;background:#08090C;overflow:hidden;cursor:grab;border:1px solid rgba(255,255,255,.06);border-radius:14px}
+.kb-canvas{position:relative;width:100%;height:calc(100vh - 158px);min-height:620px;background:#08090C;overflow:hidden;cursor:grab;border:1px solid rgba(255,255,255,.06);border-radius:14px}
 .kb-canvas:active{cursor:grabbing}
+.kb-zoom-controls{position:absolute;top:16px;right:16px;z-index:2;display:flex;align-items:center;gap:6px;padding:6px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(16,18,24,.9);backdrop-filter:blur(8px);color:#EDEEF2;font-size:11px}
+.kb-zoom-controls button{min-width:28px;height:28px;border:1px solid rgba(255,255,255,.12);border-radius:7px;background:rgba(255,255,255,.06);color:#EDEEF2;cursor:pointer}
+.kb-zoom-controls button:hover{background:rgba(99,102,241,.35);border-color:#6366F1}
+.kb-zoom-controls span{min-width:42px;text-align:center;color:#8A8F9C}
 .kb-node{cursor:pointer}
 .kb-node circle{fill:#101218;stroke:#2A2E38;stroke-width:1.5}
 .kb-node text{fill:#EDEEF2;font-size:12px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif}

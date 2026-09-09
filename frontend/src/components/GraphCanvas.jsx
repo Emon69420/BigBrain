@@ -10,6 +10,7 @@ export function GraphCanvas({ nodes, edges, selectedId, colorMap, onSelect, pinn
   const [pos, setPos] = useState({});
   const [size, setSize] = useState({ w: 800, h: 520 });
   const [hoverId, setHoverId] = useState(null);
+  const [zoom, setZoom] = useState(1);
 
   const simNodes = useMemo(() => nodes.map((n) => ({ ...n, r: 14 + Math.min(22, (n.chunks || 0) * 4) })), [nodes]);
   const simLinks = useMemo(() => edges.map((e) => ({ source: e.a, target: e.b, weight: e.weight, tags: e.tags })), [edges]);
@@ -33,19 +34,19 @@ export function GraphCanvas({ nodes, edges, selectedId, colorMap, onSelect, pinn
     simNodes.forEach((n, i) => {
       if (n.x == null || n.y == null) {
         const a = (2 * Math.PI * i) / Math.max(1, simNodes.length);
-        n.x = size.w / 2 + Math.cos(a) * Math.min(size.w, size.h) * 0.28;
-        n.y = size.h / 2 + Math.sin(a) * Math.min(size.w, size.h) * 0.28;
+        n.x = size.w / 2 + Math.cos(a) * Math.min(size.w, size.h) * 0.38;
+        n.y = size.h / 2 + Math.sin(a) * Math.min(size.w, size.h) * 0.38;
       }
     });
     const sim = forceSimulation(simNodes)
       .velocityDecay(0.35)
       .alphaMin(0.12)
-      .force("charge", forceManyBody().strength(-90))
+      .force("charge", forceManyBody().strength(-260))
       .force("center", forceCenter(size.w / 2, size.h / 2))
       .force("gx", forceX(size.w / 2).strength(0.08))
       .force("gy", forceY(size.h / 2).strength(0.08))
-      .force("collide", forceCollide().radius((d) => d.r + 18))
-      .force("link", forceLink(simLinks).id((d) => d.id).distance(90).strength(0.5));
+      .force("collide", forceCollide().radius((d) => d.r + 36))
+      .force("link", forceLink(simLinks).id((d) => d.id).distance(170).strength(0.35));
     simNodes.forEach((n) => {
       if (pinned[n.id]) { n.fx = pinned[n.id].x; n.fy = pinned[n.id].y; }
       else { n.fx = null; n.fy = null; }
@@ -96,9 +97,25 @@ export function GraphCanvas({ nodes, edges, selectedId, colorMap, onSelect, pinn
     return a === hoverId || b === hoverId;
   }
 
+  function changeZoom(delta) {
+    setZoom((z) => Math.max(0.45, Math.min(2.4, +(z + delta).toFixed(2))));
+  }
+
+  function wheelZoom(e) {
+    e.preventDefault();
+    changeZoom(e.deltaY > 0 ? -0.1 : 0.1);
+  }
+
   return (
-    <div ref={ref} className="kb-canvas">
+    <div ref={ref} className="kb-canvas" onWheel={wheelZoom}>
+      <div className="kb-zoom-controls" aria-label="Graph zoom controls">
+        <button type="button" onClick={() => changeZoom(0.15)} aria-label="Zoom in">+</button>
+        <span>{Math.round(zoom * 100)}%</span>
+        <button type="button" onClick={() => changeZoom(-0.15)} aria-label="Zoom out">−</button>
+        <button type="button" onClick={() => setZoom(1)} aria-label="Reset zoom">Reset</button>
+      </div>
       <svg width={size.w} height={size.h} role="img" aria-label="Knowledge graph" style={{ display: "block" }}>
+        <g transform={`translate(${size.w / 2} ${size.h / 2}) scale(${zoom}) translate(${-size.w / 2} ${-size.h / 2})`}>
         {simLinks.map((l, i) => {
           const a = typeof l.source === "object" ? l.source.id : l.source;
           const b = typeof l.target === "object" ? l.target.id : l.target;
@@ -131,12 +148,13 @@ export function GraphCanvas({ nodes, edges, selectedId, colorMap, onSelect, pinn
                 dragNode(n.id, e, e.currentTarget.ownerSVGElement);
               }}>
               <title>{n.title} — {n.dept} · {n.chunks} chunks</title>
-              <circle r={n.r} fill="none" stroke={col} strokeWidth={isSel ? 2.5 : 1.5} opacity={dim ? 0.35 : 1} />
+              <circle r={n.r} fill={col} fillOpacity={dim ? 0.08 : 0.2} stroke={col} strokeWidth={isSel ? 2.8 : 1.8} opacity={dim ? 0.35 : 1} />
               {pinned[n.id] && <circle r={2.5} fill="var(--muted)" cx={n.r - 2} cy={-n.r + 2} />}
               <text y={n.r + 15} textAnchor="middle">{n.title}</text>
             </g>
           );
         })}
+        </g>
       </svg>
     </div>
   );
