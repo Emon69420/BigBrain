@@ -131,24 +131,27 @@ export function BoardsView({ onBuild }){
   if(sel) return <BoardDetail id={sel} onBack={()=>{ setSel(null); load(); }}/>;
   return (
     <div>
-      <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4}}>
-        <h2 style={{margin:0}}>Boards</h2>
-        <button className="btn btn-primary" onClick={()=>onBuild("Create a dashboard for Zone C tracking ")}>+ Create</button>
+      <div className="boards-header">
+        <h2 className="boards-title">Boards</h2>
+        <button className="boards-create" onClick={()=>onBuild("Create a dashboard for Zone C tracking ")}>+ Create</button>
       </div>
-      <p className="small muted" style={{margin:"0 0 12px"}}>Live zone and general boards. Create starts a chat — describe metrics, iterate, finalize. Staff fill values from each board.</p>
+      <p className="boards-subtitle">Live zone and general boards. Create starts a chat — describe metrics, iterate, finalize. Staff fill values from each board.</p>
       {!boards && <div>Loading boards…{msg && <p className="small muted">{msg}</p>}</div>}
       {boards && !boards.length && <div className="card small muted">No boards yet — press + Create and describe what to track.</div>}
       {boards && !!boards.length && (
-        <div style={{display:"grid", gap:10, gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))"}}>
+        <div className="boards-grid">
           {boards.map(b=>(
-            <div key={b.id} className="card" style={{cursor:"pointer"}} onClick={()=>setSel(b.id)}>
-              <div style={{fontWeight:700}}>{b.name}</div>
-              <div style={{marginTop:6, display:"flex", gap:6, flexWrap:"wrap"}}>
-                {b.zone && <span className="badge">{b.zone}</span>}
-                <span className="badge" style={b.status==="live"?null:{borderColor:"var(--accent)"}}>{b.status}</span>
-                <span className="badge">{(b.metrics||[]).length} metrics</span>
+            <div key={b.id} className="board-card" onClick={()=>setSel(b.id)}>
+              <div className="board-card-head">
+                <div className="board-card-title">{b.name}</div>
+                <span className="board-card-menu">···</span>
               </div>
-              <div className="small muted" style={{marginTop:6}}>updated {ago(b.updated_at)}</div>
+              <div className="board-card-tags">
+                {b.zone && <span className="board-tag">{b.zone}</span>}
+                <span className={`board-tag ${b.status==="draft" ? "draft" : b.status==="live" ? "live" : ""}`}>{b.status}</span>
+                <span className="board-tag">{(b.metrics||[]).length} metrics</span>
+              </div>
+              <div className="board-updated">updated {ago(b.updated_at)}</div>
             </div>
           ))}
         </div>
