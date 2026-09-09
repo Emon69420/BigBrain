@@ -188,7 +188,7 @@ function AppShell({ user, orgs, onLogout }){
         <div className="content">
           {view==="chat" && (
             <>
-              {!cid && <div className="card" style={{marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, borderStyle:"dashed"}}><span style={{fontSize:13, color:"#6B7280"}}>Pick a chat from the panel, or start a new conversation.</span><button className="btn" style={{padding:"6px 14px", borderRadius:8, background:"#08090C", color:"#fff", borderColor:"#08090C"}} onClick={handleNew}>+ New chat</button></div>}
+              {!cid && <div className="card" style={{marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, borderStyle:"dashed"}}><span style={{fontSize:13, color:"#6B7280"}}>Pick a chat from the panel, or start a new conversation.</span><button className="btn" style={{padding:"6px 14px", borderRadius:8, background:"transparent", color:"#fff", border:"1px solid #fff"}} onClick={handleNew}>+ New chat</button></div>}
               <ChatView messages={messages} onAsk={handleAsk} loading={askLoading} onInfo={handleInfo} phase={phase} buildPrompt={buildPrompt}/>
               <EvidencePanel open={!!evMsg} onClose={()=>{setEvMsg(null); setHighlight(null);}} msg={evMsg} highlightDoc={highlight}/>
             </>
