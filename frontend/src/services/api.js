@@ -1,5 +1,5 @@
 // All API calls live here. Components never fetch() directly.
-const BASE = import.meta.env.VITE_API_URL || "https://7db2-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app";
+const BASE = import.meta.env.VITE_API_URL || "https://22ed-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app";
 let _org = localStorage.getItem("bb_org") || import.meta.env.VITE_ORG_ID || "default";
 export function setOrg(id){ _org=id; localStorage.setItem("bb_org", id); }
 export function getOrg(){ return _org; }

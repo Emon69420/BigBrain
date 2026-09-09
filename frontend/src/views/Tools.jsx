@@ -6,7 +6,7 @@ export function ToolsView(){
   const [trace,setTrace]=useState([]);
   const [last,setLast]=useState(null);
   const [runRes,setRunRes]=useState(null);
-  async function load(){ setStats(await fetch(`${import.meta.env.VITE_API_URL||"https://7db2-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/tools/stats`,{headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include"}).then(r=>r.json())); }
+  async function load(){ setStats(await fetch(`${import.meta.env.VITE_API_URL||"https://22ed-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/tools/stats`,{headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include"}).then(r=>r.json())); }
   useEffect(()=>{ load(); },[]);
   async function ensure(e){
     e.preventDefault();
@@ -16,7 +16,7 @@ export function ToolsView(){
     let sample=null;
     if(sampleRaw) try{ sample=JSON.parse(sampleRaw); }catch{ sample=sampleRaw; }
     setTrace(["ensuring…"]);
-    const r=await fetch(`${import.meta.env.VITE_API_URL||"https://7db2-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/tools/ensure`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include",body:JSON.stringify({task, sample_input:sample})}).then(r=>r.json());
+    const r=await fetch(`${import.meta.env.VITE_API_URL||"https://22ed-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/tools/ensure`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include",body:JSON.stringify({task, sample_input:sample})}).then(r=>r.json());
     setLast(r);
     setTrace(r.trace||[]);
     load();
@@ -24,7 +24,7 @@ export function ToolsView(){
   async function run(name, argsRaw){
     let args=null;
     if(argsRaw) try{ args=JSON.parse(argsRaw); }catch{ args=argsRaw; }
-    const r=await fetch(`${import.meta.env.VITE_API_URL||"https://7db2-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/tools/run`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include",body:JSON.stringify({name,args})}).then(r=>r.json());
+    const r=await fetch(`${import.meta.env.VITE_API_URL||"https://22ed-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/tools/run`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include",body:JSON.stringify({name,args})}).then(r=>r.json());
     setRunRes(r); load();
   }
   if(!stats) return <div>Loading tools…</div>;
