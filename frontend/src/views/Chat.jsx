@@ -1,12 +1,11 @@
-// Chat per design.md §7: hairline turns, orb model badge, Task List Card,
-// Reasoning disclosure (collapsed), Evidence drawer, hairline input bar.
+// Chat view — flat conversation layout, no bubbles, Apple-inspired
 import { useState, useEffect } from "react";
 import { SearchBox, PhaseIndicator } from "../components/SearchPerplexity.jsx";
 import { BoardPreview } from "./Boards.jsx";
 import HairlineButton from "../components/HairlineButton.jsx";
 import * as api from "../services/api.js";
+import BrainMark from "../components/BrainMark.jsx";
 
-// display helper: show "local" wherever backend says "groq" — frontend-only rebrand
 const toLocal = (v) => (v == null ? v : String(v).replace(/groq/gi, "local"));
 const fmtModel = (k) => toLocal(k);
 
@@ -29,8 +28,6 @@ function DnaBody({ dna, err }){
 }
 
 function normCites(text){
-  // LLMs emit fullwidth brackets too — normalize so links + backend agree.
-  // Built via fromCharCode to keep this file pure ASCII.
   if(!text) return text;
   const FW_OPEN = String.fromCharCode(0x3010);
   const FW_CLOSE = String.fromCharCode(0x3011);
@@ -54,8 +51,6 @@ function ModelOrb({ model_key }){
   return <span className={cls} title={fmtModel(model_key)||"model"}/>;
 }
 
-// Task List Card derived ONLY from real turn data (phase, evidence, tool state).
-// Red Team row reflects msg.redteam when present; human approval backend not built yet.
 function TaskListCard({ msg, phase, query }){
   const steps=[];
   const evLen=(msg?.evidence||[]).length;
@@ -97,7 +92,10 @@ function TaskListCard({ msg, phase, query }){
     <div className="task-card">
       <div className="task-card-head" onClick={()=>setCollapsed(c=>!c)} style={{cursor:"pointer", userSelect:"none"}}>
         <span>{query?String(query).slice(0,60):"Working"} </span>
-        <span style={{display:"flex", alignItems:"center", gap:8}}><span className="muted small">{done}/{steps.length}</span><span style={{fontSize:10, transform: collapsed ? "rotate(-90deg)" : "rotate(90deg)", transition:".15s", display:"inline-block"}}>▶</span></span>
+        <span style={{display:"flex", alignItems:"center", gap:8}}>
+          <span className="muted small">{done}/{steps.length}</span>
+          <span style={{fontSize:10, transform: collapsed ? "rotate(-90deg)" : "rotate(90deg)", transition:"transform var(--duration-fast)", display:"inline-block"}}>▶</span>
+        </span>
       </div>
       {!collapsed && steps.map((s,i)=>(
         <div key={i}>
@@ -138,15 +136,15 @@ function RedTeamBody({ msg }){
   }
   return (
     <div style={{marginTop:6}}>
-      <div className="small" style={{fontWeight:700}}>What failed</div>
+      <div className="small" style={{fontWeight:600}}>What failed</div>
       {findings.length
         ? findings.map((f,i)=> <div key={i} className="reason-line"><span className="reason-dot" style={{background:"var(--danger)"}}/>{toLocal(f)}</div>)
         : <div className="reason-line">No detail recorded.</div>}
-      <div className="small" style={{fontWeight:700, marginTop:8}}>What happened next</div>
+      <div className="small" style={{fontWeight:600, marginTop:8}}>What happened next</div>
       <div className="reason-line">
         {rt.regenerated
-          ? "Draft rejected → regenerated once with these findings → delivered flagged (red badge above). Not retried further by design."
-          : "Delivered flagged without regenerate — see trace. Red badge above applies."}
+          ? "Draft rejected → regenerated once with these findings → delivered flagged. Not retried further by design."
+          : "Delivered flagged without regenerate — see trace."}
       </div>
       {rt.rejected_draft && (
         <details style={{marginTop:6}}>
@@ -158,8 +156,6 @@ function RedTeamBody({ msg }){
   );
 }
 
-// One expander per answer: Reasoning + Red Team + Decision record live here.
-// Sections render only when that turn actually has the data. Fail-open on redteam fail.
 function HowComputed({ msg }){
   const [dna, setDna] = useState(null);
   const [err, setErr] = useState("");
@@ -177,20 +173,27 @@ function HowComputed({ msg }){
     <details className="reasoning" open={rt?.verdict === "fail"} onToggle={load}>
       <summary>How this was computed <span className="chev">▶</span></summary>
       {hasReason && (<>
-        <div className="small" style={{fontWeight:700, marginTop:6}}>Reasoning</div>
+        <div className="small" style={{fontWeight:600, marginTop:6}}>Reasoning</div>
         <ReasoningBody msg={msg}/>
       </>)}
       {rt && (<>
-        <div className="small" style={{fontWeight:700, marginTop:8}}>Red Team</div>
+        <div className="small" style={{fontWeight:600, marginTop:8}}>Red Team</div>
         <RedTeamBody msg={msg}/>
       </>)}
       {showDna && (<>
-        <div className="small" style={{fontWeight:700, marginTop:8}}>Decision record</div>
+        <div className="small" style={{fontWeight:600, marginTop:8}}>Decision record</div>
         <DnaBody dna={dna} err={err}/>
       </>)}
-      <div style={{borderTop:"1px solid var(--line)", marginTop:8}}/>
+      <div style={{borderTop:"1px solid var(--border)", marginTop:8}}/>
     </details>
   );
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning.";
+  if (h < 17) return "Good afternoon.";
+  return "Good evening.";
 }
 
 export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt }){
@@ -198,54 +201,78 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt 
   const ev=lastAssistant?.evidence||[];
   const lastUser=[...messages].reverse().find(m=>m.role==="user");
   const showCard = phase || lastAssistant;
-  // live board preview: latest assistant message carrying board evidence
   const [boardRef, setBoardRef] = useState(null);
   const boardMsg=[...messages].reverse().find(m=>m.role==="assistant" && (m.evidence||[]).some(e=>e.board));
   const boardId=boardMsg ? (boardMsg.evidence.find(e=>e.board)||{}).doc_id : null;
   useEffect(()=>{
     if(boardMsg && boardId) setBoardRef(r=>(r && r.mid===boardMsg.id) ? r : {id:boardId, mid:boardMsg.id});
   },[messages]);
+
   return (
-    <div className="center-col" style={{zoom:1.25}}>
+    <div className="center-col">
       <div>
-        <div className="chat-log">
-          {messages.map(m=>(
-            m.role==="user" ? (
-              <div key={m.id} className="chat-turn user">{m.content}</div>
-            ) : (
-              <div key={m.id} className="chat-turn">
-                <div style={{display:"flex",alignItems:"center",gap:0}}><ModelOrb model_key={m.model_key}/><span className="chat-badge-subtle mono">{fmtModel(m.model_key)||"model"}</span></div>
-                <div className="answer" style={{marginTop:8,whiteSpace:"pre-wrap"}}>{renderWithCites(toLocal(m.content), (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
-                <div className="meta">
-                  {(m.redteam && (m.redteam.verdict === "fail" || (m.redteam.verdict === "flag" && (m.redteam.findings||[]).length))) ? (
-                    <span className="verified-plain"><span className="dot" style={{background:"var(--risk-critical)"}}/>Red Team {m.redteam.verdict} — answer unverified</span>
-                  ) : m.tool_used && m.tool_used.error ? (
-                    <span className="verified-plain"><span className="dot" style={{background:"var(--risk-critical)"}}/>Tool failed — answer unverified</span>
-                  ) : m.tool_used && m.tool_used.result ? (
-                    <span className="verified-plain"><span className="dot"/>Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
-                  ) : (
-                    <span className="verified-plain"><span className="dot" style={m.general_knowledge?{background:"var(--st-unverified)"}:null}/>{m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
-                  )}
-                  {m.evidence && <button className="sources-quiet" onClick={()=>onInfo(m)}>ⓘ sources</button>}
-                  {(m.evidence||[]).some(e=>e.board) && <button className="sources-quiet" onClick={()=>{ const b=(m.evidence.find(e=>e.board)||{}); if(b.doc_id) setBoardRef({id:b.doc_id, mid:m.id}); }}>▦ board</button>}
+        {/* Empty state */}
+        {!messages.length && !phase && (
+          <div className="chat-empty">
+            <div className="chat-empty-icon"><BrainMark size={28}/></div>
+            <div className="chat-empty-title">{getGreeting()}</div>
+            <div className="chat-empty-subtitle">How can I help you today?</div>
+          </div>
+        )}
+
+        {/* Chat log — flat messages */}
+        {messages.length > 0 && (
+          <div className="chat-log">
+            {messages.map(m=>(
+              m.role==="user" ? (
+                <div key={m.id} className="chat-turn user">
+                  <div className="chat-turn-label">You</div>
+                  <div className="chat-turn-content">{m.content}</div>
                 </div>
-                <HowComputed msg={m}/>
-              </div>
-            )
-          ))}
-          {!messages.length && <div className="muted">No messages — ask about your docs. Try: "whats sop" or "What is inspection interval for P-204?"</div>}
-        </div>
+              ) : (
+                <div key={m.id} className="chat-turn">
+                  <div className="chat-turn-label">
+                    <ModelOrb model_key={m.model_key}/>
+                    <span>BigBrain</span>
+                    <span className="chat-badge-subtle mono" style={{marginLeft:4}}>{fmtModel(m.model_key)||"model"}</span>
+                  </div>
+                  <div className="answer" style={{marginTop:4}}>{renderWithCites(toLocal(m.content), (id)=>{ const idx=ev.findIndex(e=>String(e.doc_id)===String(id)); if(idx>=0) onInfo(m, idx); })}</div>
+                  <div className="meta">
+                    {(m.redteam && (m.redteam.verdict === "fail" || (m.redteam.verdict === "flag" && (m.redteam.findings||[]).length))) ? (
+                      <span className="verified-plain"><span className="dot" style={{background:"var(--danger)"}}/> Red Team {m.redteam.verdict} — answer unverified</span>
+                    ) : m.tool_used && m.tool_used.error ? (
+                      <span className="verified-plain"><span className="dot" style={{background:"var(--danger)"}}/> Tool failed — answer unverified</span>
+                    ) : m.tool_used && m.tool_used.result ? (
+                      <span className="verified-plain"><span className="dot"/> Verified · tool:{m.tool_used.name}{m.tool_used.newly_created ? " (new)" : " (reused)"}</span>
+                    ) : (
+                      <span className="verified-plain"><span className="dot" style={m.general_knowledge?{background:"var(--warning)"}:null}/> {m.general_knowledge ? "General knowledge" : `Grounded · ${m.evidence?.length ?? 0} sources`}</span>
+                    )}
+                    {m.evidence && <button className="sources-quiet" onClick={()=>onInfo(m)}>ⓘ sources</button>}
+                    {(m.evidence||[]).some(e=>e.board) && <button className="sources-quiet" onClick={()=>{ const b=(m.evidence.find(e=>e.board)||{}); if(b.doc_id) setBoardRef({id:b.doc_id, mid:m.id}); }}>▦ board</button>}
+                  </div>
+                  <HowComputed msg={m}/>
+                </div>
+              )
+            ))}
+          </div>
+        )}
+
+        {/* Phase indicator */}
         {phase && <div style={{marginTop:12, marginBottom:8}}><PhaseIndicator phase={phase}/></div>}
-        <div style={{maxWidth:640, marginTop:12}}>
+
+        {/* Composer area */}
+        <div style={{maxWidth:680, margin: messages.length ? "16px auto 0" : "0 auto"}}>
           <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:6}}>
             <span className="badge"><span className="badge-dot"/>auto</span>
             <span className="small muted">model routed per message · sources open via ⓘ on any answer</span>
           </div>
-          <SearchBox key={buildPrompt||"ask"} onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…" initial={buildPrompt}/>
+          <SearchBox key={buildPrompt||"ask"} onAsk={onAsk} loading={loading} placeholder="Ask BigBrain anything..." initial={buildPrompt}/>
         </div>
+
+        {/* Board preview drawer */}
         {boardRef && (
           <div className="evidence-panel open">
-            <div style={{padding:16, borderBottom:"1px solid var(--line)", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+            <div style={{padding:16, borderBottom:"1px solid var(--border)", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
               <strong>Board preview</strong><button className="btn" onClick={()=>setBoardRef(null)}>×</button>
             </div>
             <div style={{padding:16}} key={boardRef.mid}>
@@ -261,14 +288,14 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt 
 export function EvidencePanel({ open, onClose, msg, highlightDoc }){
   return (
     <div className={`evidence-panel ${open?"open":""}`}>
-      <div style={{padding:16, borderBottom:"1px solid var(--line)", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+      <div style={{padding:16, borderBottom:"1px solid var(--border)", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
         <strong>Evidence</strong><button className="btn" onClick={onClose}>×</button>
       </div>
-      {!msg && <div style={{padding:16, color:"var(--muted)"}}>Select ⓘ on a message.</div>}
-      {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--muted)"}}><em>No sources — this answer used general knowledge.</em></div>}
+      {!msg && <div style={{padding:16, color:"var(--text-secondary)"}}>Select ⓘ on a message.</div>}
+      {msg && !msg.evidence?.length && <div style={{padding:16, color:"var(--text-secondary)"}}><em>No sources — this answer used general knowledge.</em></div>}
       {msg?.evidence?.map((e,i)=>(
-        <div key={i} style={{padding:"12px 16px", borderBottom:"1px solid var(--line)", background: highlightDoc===String(e.doc_id)?"var(--panel)":"transparent"}}>
-          <div className="small" style={{color:"var(--muted)"}}>{e.board ? `[board:${String(toLocal(e.title)||"").replace(/^board:/,"")||e.doc_id}]` : e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{toLocal(e.title)}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
+        <div key={i} style={{padding:"12px 16px", borderBottom:"1px solid var(--border)", background: highlightDoc===String(e.doc_id)?"var(--surface)":"transparent"}}>
+          <div className="small" style={{color:"var(--text-muted)"}}>{e.board ? `[board:${String(toLocal(e.title)||"").replace(/^board:/,"")||e.doc_id}]` : e.tool ? `[tool:${e.doc_id}]` : `[doc:${e.doc_id}]`} <span className="mono">{toLocal(e.title)}</span> {e.tool ? <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span> : (e.distance!=null && `· ${Number(e.distance).toFixed(3)}`)}</div>
           <div style={{marginTop:6, whiteSpace:"pre-wrap", fontSize:14}}>{toLocal(e.content)}</div>
         </div>
       ))}

@@ -8,9 +8,9 @@ export function FileUpload({ onFile, uploading }) {
   return (
     <label className="ingest-drop" style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, cursor:"pointer", opacity: uploading? .6:1 }}>
       <input type="file" accept=".txt,.md,.csv" onChange={handle} disabled={uploading} hidden />
-      <span style={{width:36,height:36,borderRadius:999,background:"#fff",color:"#08090C",display:"grid",placeItems:"center",fontSize:16}}>↑</span>
-      <span style={{fontSize:13,fontWeight:650,color:"#fff"}}>{uploading ? "Uploading..." : "Click to upload .txt / .md / .csv"}</span>
-      <span style={{fontSize:11,color:"#9AA0B0"}}>Drag & drop or browse · only .txt/.md/.csv</span>
+      <span style={{width:36,height:36,borderRadius:999,background:"var(--text-primary)",color:"var(--bg-primary)",display:"grid",placeItems:"center",fontSize:16}}>↑</span>
+      <span style={{fontSize:13,fontWeight:600,color:"var(--text-primary)"}}>{uploading ? "Uploading..." : "Click to upload .txt / .md / .csv"}</span>
+      <span style={{fontSize:11,color:"var(--text-muted)"}}>Drag & drop or browse · only .txt/.md/.csv</span>
     </label>
   );
 }
@@ -27,9 +27,9 @@ export function TextIngest({ onIngest, uploading }) {
   }
   return (
     <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10, width:"100%" }}>
-      <input className="input" name="title" placeholder="Title (e.g. SOP-17)" style={{background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)"}} />
-      <textarea className="textarea" name="content" rows={5} placeholder="Paste document text here..." style={{background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)", minHeight:140}} />
-      <button className="btn" style={{background:"transparent", color:"#fff", border:"1px solid #fff", borderRadius:999, padding:"10px 16px", fontWeight:700, alignSelf:"flex-start", boxShadow:"none"}} disabled={uploading}>{uploading ? "Ingesting..." : "Ingest text →"}</button>
+      <input className="input" name="title" placeholder="Title (e.g. SOP-17)" style={{background:"var(--glass-bg)", borderColor:"var(--border)"}} />
+      <textarea className="textarea" name="content" rows={5} placeholder="Paste document text here..." style={{background:"var(--glass-bg)", borderColor:"var(--border)", minHeight:140}} />
+      <button className="btn" style={{background:"transparent", color:"var(--text-primary)", border:"1px solid var(--border-strong)", borderRadius:999, padding:"10px 16px", fontWeight:600, alignSelf:"flex-start"}} disabled={uploading}>{uploading ? "Ingesting..." : "Ingest text →"}</button>
     </form>
   );
 }

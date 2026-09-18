@@ -1,6 +1,6 @@
+// Composer & phase indicator — Apple-inspired, liquid glass
 const toLocal = (v) => (v == null ? v : String(v).replace(/groq/gi, "local"));
 
-// Phase pill: Searching → Reading → Building tool → Running tool → Writing, with dot pulse.
 export function PhaseIndicator({ phase }){
   if(!phase) return null;
   const labels={
@@ -12,14 +12,13 @@ export function PhaseIndicator({ phase }){
   };
   return (
     <span className="phase-pill">
-      <span className="phase-dot"/><span className="phase-dot"/><span className="phase-dot"/>
+      <span className="phase-dot"/><span className="phase-dot" style={{animationDelay:"0.2s"}}/><span className="phase-dot" style={{animationDelay:"0.4s"}}/>
       {labels[phase]||phase}
     </span>
   );
 }
 
-// Perplexity search box: icon + input + send. Rounded, focus ring.
-export function SearchBox({ onAsk, loading, placeholder="Ask anything…", initial }){
+export function SearchBox({ onAsk, loading, placeholder="Message BigBrain…", initial }){
   function submit(e){
     e.preventDefault();
     const fd=new FormData(e.target);
@@ -29,27 +28,30 @@ export function SearchBox({ onAsk, loading, placeholder="Ask anything…", initi
   }
   return (
     <form onSubmit={submit} className="search-box">
-      <span style={{color:"var(--muted-2)"}}>⌕</span>
       <input name="q" placeholder={placeholder} disabled={loading} autoComplete="off" defaultValue={initial||""}/>
-      <button className="send" disabled={loading} aria-label="Send">→</button>
+      <button className="send" disabled={loading} aria-label="Send">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </button>
     </form>
   );
 }
 
-// Source card + panel (right side on desktop). Hover + click → highlight.
 export function SourceCard({ e, idx, active, onClick }){
   const isTool = !!e.tool;
   return (
-    <div className={`source-card ${active?"":""}`} style={active?{borderColor:"var(--accent)", background:"var(--accent-soft)"}: isTool?{borderColor: e.newly_created?"#7c3aed":"#1e293b", background: e.newly_created?"#f5f3ff":"#f8fafc"}:null} onClick={onClick}>
-      <div style={{display:"flex", justifyContent:"space-between", fontSize:11, color:"var(--muted-2)"}}>
-        <span>{isTool?`[tool:${e.doc_id}]`:`[${idx+1}] DOC:${e.doc_id}`} · {toLocal(e.title)} {isTool && <span style={{background: e.newly_created?"#7c3aed":"#1e293b", color:"#fff", padding:"1px 6px", borderRadius:6, fontSize:10}}>{e.newly_created?"newly created":"reused"}</span>}</span>
+    <div className="source-card" style={active?{borderColor:"var(--accent)"}:null} onClick={onClick}>
+      <div style={{display:"flex", justifyContent:"space-between", fontSize:11, color:"var(--text-muted)"}}>
+        <span>{isTool?`[tool:${e.doc_id}]`:`[${idx+1}] DOC:${e.doc_id}`} · {toLocal(e.title)} {isTool && <span className="badge" style={{fontSize:10}}>{e.newly_created?"newly created":"reused"}</span>}</span>
         {e.distance!=null && !isTool && <span>{Number(e.distance).toFixed(3)}</span>}
       </div>
-      <div style={{fontWeight:700, fontSize:13, marginTop:4, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden"}}>{toLocal(e.title)}</div>
-      <div style={{fontSize:13, color:"var(--muted)", marginTop:6, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden"}}>{toLocal(e.content)}</div>
+      <div style={{fontWeight:500, fontSize:13, marginTop:4, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", color:"var(--text-primary)"}}>{toLocal(e.title)}</div>
+      <div style={{fontSize:13, color:"var(--text-secondary)", marginTop:6, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden"}}>{toLocal(e.content)}</div>
     </div>
   );
 }
+
 export function SourcesPanel({ evidence }){
   if(!evidence?.length) return <div className="card small muted">No sources — the answer was not found in your docs. Add a relevant doc and ask again.</div>;
   return (
