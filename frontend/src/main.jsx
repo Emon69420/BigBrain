@@ -37,7 +37,7 @@ const NAV_ITEMS = [
 const SOON_ITEMS = [["audit", "Audit"]];
 
 /* ── Unified Sidebar ── */
-function Sidebar({ view, setView, threads, cid, onSelect, onNew, onRename, user, onLogout, mobileOpen, onMobileClose }) {
+function Sidebar({ view, setView, threads, cid, onSelect, onNew, onRename, user, onLogout, mobileOpen, onMobileClose, collapsed, onToggleCollapse }) {
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
@@ -63,20 +63,35 @@ function Sidebar({ view, setView, threads, cid, onSelect, onNew, onRename, user,
     : threads;
 
   return (
-    <aside className={`sidebar${mobileOpen ? " mobile-open" : ""}`}>
-      {/* Brand */}
+    <aside className={`sidebar${mobileOpen ? " mobile-open" : ""}${collapsed ? " collapsed" : ""}`}>
+      {/* Brand + collapse toggle */}
       <div className="sidebar-brand">
-        <span style={{ display: "grid", placeItems: "center", color: "var(--text-secondary)" }}>
+        <span style={{ display: "grid", placeItems: "center", color: "var(--text-secondary)", flexShrink: 0 }}>
           <BrainMark size={18} />
         </span>
-        BigBrain
-        <span className="sidebar-brand-badge">Sovereign</span>
+        {!collapsed && <>
+          <span className="sidebar-brand-text">BigBrain</span>
+          <span className="sidebar-brand-badge">Sovereign</span>
+        </>}
+        <button
+          className="sidebar-collapse-btn"
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            {collapsed
+              ? <path d="M9 6l6 6-6 6"/>
+              : <path d="M15 6l-6 6 6 6"/>
+            }
+          </svg>
+        </button>
       </div>
 
       {/* New chat */}
-      <button className="sidebar-new-chat" onClick={() => { onNew(); handleNavClick("chat"); }}>
+      <button className="sidebar-new-chat" onClick={() => { onNew(); handleNavClick("chat"); }} title={collapsed ? "New chat" : undefined}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
-        New chat
+        {!collapsed && <span>New chat</span>}
       </button>
 
       {/* Navigation */}
@@ -89,22 +104,25 @@ function Sidebar({ view, setView, threads, cid, onSelect, onNew, onRename, user,
             role="button"
             tabIndex={0}
             onKeyDown={e => { if (e.key === "Enter") handleNavClick(key); }}
+            title={collapsed ? label : undefined}
           >
             {NAV_ICONS[key]}
-            <span>{label}</span>
+            {!collapsed && <span>{label}</span>}
           </div>
         ))}
         {SOON_ITEMS.map(([key, label]) => (
-          <div key={key} className="sidebar-nav-item soon" aria-disabled="true">
+          <div key={key} className="sidebar-nav-item soon" aria-disabled="true" title={collapsed ? label : undefined}>
             {NAV_ICONS[key]}
-            <span>{label}</span>
-            <span className="soon-tag">soon</span>
+            {!collapsed && <>
+              <span>{label}</span>
+              <span className="soon-tag">soon</span>
+            </>}
           </div>
         ))}
       </nav>
 
-      {/* Chat threads (visible when in chat view) */}
-      {view === "chat" && (
+      {/* Chat threads (visible when in chat view AND not collapsed) */}
+      {view === "chat" && !collapsed && (
         <>
           <div className="sidebar-divider" />
 
@@ -168,16 +186,27 @@ function Sidebar({ view, setView, threads, cid, onSelect, onNew, onRename, user,
 
       {/* User footer */}
       <div className="sidebar-footer">
-        <div className="sidebar-footer-user">
-          <div className="sidebar-footer-avatar">
-            {(user?.name || user?.email || "U").split(" ").map(x => x[0]).join("").slice(0, 2).toUpperCase()}
-          </div>
-          <div className="sidebar-footer-info">
-            <div className="sidebar-footer-name">{user?.name || user?.email || "—"}</div>
-            <div className="sidebar-footer-email">{user?.email || ""}</div>
-          </div>
-        </div>
-        <button className="sidebar-footer-signout" onClick={onLogout}>Sign out →</button>
+        {!collapsed ? (
+          <>
+            <div className="sidebar-footer-user">
+              <div className="sidebar-footer-avatar">
+                {(user?.name || user?.email || "U").split(" ").map(x => x[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+              <div className="sidebar-footer-info">
+                <div className="sidebar-footer-name">{user?.name || user?.email || "—"}</div>
+                <div className="sidebar-footer-email">{user?.email || ""}</div>
+              </div>
+            </div>
+            <button className="sidebar-footer-signout" onClick={onLogout}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sign out
+            </button>
+          </>
+        ) : (
+          <button className="sidebar-footer-signout collapsed-signout" onClick={onLogout} title="Sign out">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        )}
       </div>
     </aside>
   );
@@ -194,6 +223,14 @@ function AppShell({ user, orgs, onLogout }) {
   const { uploadFile, uploadText, uploading, last, error: ingestError } = useIngest();
   const [askLoading, setAskLoading] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("bb_sidebar_collapsed") === "1");
+  function toggleSidebar() {
+    setSidebarCollapsed(c => {
+      const next = !c;
+      localStorage.setItem("bb_sidebar_collapsed", next ? "1" : "0");
+      return next;
+    });
+  }
 
   function pickOrg(id) { api.setOrg(id); setOrgId(id); setCid(null); setMessages([]); }
 
@@ -273,7 +310,7 @@ function AppShell({ user, orgs, onLogout }) {
   };
 
   return (
-    <div className="shell">
+    <div className={`shell${sidebarCollapsed ? " shell-collapsed" : ""}`}>
       {/* Mobile overlay */}
       <div className={`sidebar-overlay${mobileOpen ? " open" : ""}`} onClick={() => setMobileOpen(false)} />
 
@@ -285,6 +322,7 @@ function AppShell({ user, orgs, onLogout }) {
         onNew={handleNew} onRename={handleRename}
         user={user} onLogout={onLogout}
         mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)}
+        collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar}
       />
 
       {/* Main column */}
@@ -386,7 +424,7 @@ function Root() {
   if (!entered) return <Landing onEnter={enter} />;
   if (!user) return <Login onLogin={login} onRegister={register} onBack={backToLanding} />;
   if (!orgs.length) return (
-    <div className="card" style={{ maxWidth: 520, margin: "32px auto" }}>
+    <div className="card" style={{ maxWidth: 400, margin: "32px auto" }}>
       No orgs. <button className="btn" onClick={logout}>Sign out</button>
     </div>
   );

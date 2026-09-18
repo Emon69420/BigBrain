@@ -266,7 +266,7 @@ export function ChatView({ messages, onAsk, loading, onInfo, phase, buildPrompt 
             <span className="badge"><span className="badge-dot"/>auto</span>
             <span className="small muted">model routed per message · sources open via ⓘ on any answer</span>
           </div>
-          <SearchBox key={buildPrompt||"ask"} onAsk={onAsk} loading={loading} placeholder="Ask a follow-up…" initial={buildPrompt}/>
+          <SearchBox key={buildPrompt||"ask"} onAsk={onAsk} loading={loading} placeholder="Ask BigBrain anything..." initial={buildPrompt}/>
         </div>
 
         {/* Board preview drawer */}
