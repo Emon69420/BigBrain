@@ -1,4 +1,11 @@
+# Environment files (all variants; keep only the example)
 .env
+.env.*
+!.env.example
+
+# Session/credential dumps
+cookies.txt
+
 __pycache__/
 *.pyc
 *.pyo
