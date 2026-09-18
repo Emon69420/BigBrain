@@ -3,7 +3,7 @@ import * as api from "../services/api.js";
 import { GraphCanvas } from "../components/GraphCanvas.jsx";
 
 // Stable category palette. Colors identify departments, not risk or status.
-const COMPONENT_PALETTE = ["#818cf8", "#38bdf8", "#2dd4bf", "#a78bfa", "#f472b6", "#f59e0b", "#34d399", "#fb7185", "#60a5fa", "#c084fc"];
+const COMPONENT_PALETTE = ["#60a5fa", "#38bdf8", "#2dd4bf", "#818cf8", "#f472b6", "#f59e0b", "#34d399", "#fb7185", "#a3a3a3", "#c084fc"];
 
 function componentColors(nodes) {
   const groups = [...new Set(nodes.map((n) => n.dept || "other"))].sort();
@@ -56,9 +56,9 @@ export function KBView(){
     <div style={{width:"100%"}}>
       <div style={{display:"flex", gap:10, alignItems:"center", flexWrap:"wrap"}}>
         <h2 style={{margin:0, fontFamily:"var(--sans)", fontSize:26, fontWeight:700, letterSpacing:"-0.02em", color:"var(--ink-app)"}}>Knowledge Base</h2>
-        <span className="badge" style={{background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)", color:"var(--muted-app-2)"}}>{graph.nodes.length} docs · {graph.edges.length} links</span>
+        <span className="badge" style={{background:"var(--glass-bg)", borderColor:"var(--glass-border)", color:"var(--text-muted)"}}>{graph.nodes.length} docs · {graph.edges.length} links</span>
         <span style={{flex:1}}/>
-        <input className="input" style={{width:220, background:"rgba(255,255,255,.06)", borderColor:"rgba(255,255,255,.08)"}} placeholder="search titles, tags…" value={q} onChange={e=>setQ(e.target.value)}/>
+        <input className="input" style={{width:220, background:"var(--glass-bg)", borderColor:"var(--glass-border)"}} placeholder="search titles, tags…" value={q} onChange={e=>setQ(e.target.value)}/>
         {depts.map(d=> <button key={d} className={`kb-chip${dept===d?" on":""}`} onClick={()=>setDept(d)}>{d}</button>)}
       </div>
       {err && <div className="card" style={{marginTop:12, color:"var(--danger)"}}>{err}</div>}
