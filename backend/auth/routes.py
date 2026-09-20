@@ -18,6 +18,8 @@ def register():
     if not email or not pw or not name: return jsonify({"error": "email, name, password required"}), 400
     try:
         uid = create_user(email, name, pw)
+        from auth.service import join_org
+        join_org(uid, "default", "member")
     except Exception as e:
         if "unique" in str(e).lower() or "duplicate" in str(e).lower():
             return jsonify({"error": "email already registered"}), 409

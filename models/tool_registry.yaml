@@ -97,3 +97,49 @@ tools:
   version: 1
   uses: 1
   created_by: auto
+- name: hety
+  path: backend/tools/custom/hety.py
+  desc: HeTY placeholder tool
+  full_desc: 'HeTY placeholder tool
+
+    Args:
+
+    Returns: None'
+  status: unverified
+  version: 1
+  uses: 0
+  created_by: auto
+- name: perform_primary_crude_distillation
+  path: backend/tools/custom/perform_primary_crude_distillation.py
+  desc: Primary crude distillation cut calculator - estimates fraction of crude distilled
+    below given temperature
+  full_desc: 'Primary crude distillation cut calculator - estimates fraction of crude
+    distilled below given temperature
+
+    Args: value_1 (float)
+
+    Returns: fraction_below_temp (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto
+- name: calculate_the_required_value
+  path: backend/tools/custom/calculate_the_required_value.py
+  desc: Calculate the required r based on pump identifier and operating temperature.
+  full_desc: Calculate the required r based on pump identifier and operating temperature.
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto
+- name: what_is_the_exact
+  path: backend/tools/custom/what_is_the_exact.py
+  desc: Kinetic energy calculator for fluid in Pump P-999
+  full_desc: 'Kinetic energy calculator for fluid in Pump P-999
+
+    Args: value_1 (float)
+
+    Returns: kinetic_energy_J (float)'
+  status: unverified
+  version: 1
+  uses: 1
+  created_by: auto

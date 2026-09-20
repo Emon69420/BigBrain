@@ -7,7 +7,15 @@ CREATE TABLE IF NOT EXISTS orgs (
 INSERT INTO orgs (id, name) VALUES ('default', 'Default org')
 ON CONFLICT (id) DO NOTHING;
 
--- documents table already exists from harness scaffold; add org scope.
+-- create documents table if starting fresh
+CREATE TABLE IF NOT EXISTS documents (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- add org scope.
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS org_id TEXT;
 UPDATE documents SET org_id = 'default' WHERE org_id IS NULL;
 ALTER TABLE documents ALTER COLUMN org_id SET NOT NULL;
