@@ -19,3 +19,4 @@ venv/
 .DS_Store
 Thumbs.db
 backend/tools/custom/*.pyc
+backend/generate_massive_graph.py

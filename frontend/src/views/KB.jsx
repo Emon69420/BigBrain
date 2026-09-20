@@ -1,93 +1,273 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../services/api.js";
 import { GraphCanvas } from "../components/GraphCanvas.jsx";
+import { GraphInspector } from "../components/GraphInspector.jsx";
 
-// Stable category palette. Colors identify departments, not risk or status.
-const COMPONENT_PALETTE = ["#60a5fa", "#38bdf8", "#2dd4bf", "#818cf8", "#f472b6", "#f59e0b", "#34d399", "#fb7185", "#a3a3a3", "#c084fc"];
+// Stable category palette. Colors identify departments, not risk or status —
+// the risk palette stays reserved for safety state (design.md §8).
+const DEPT_PALETTE = ["#60a5fa", "#2dd4bf", "#a78bfa", "#f472b6", "#fbbf24", "#34d399", "#fb7185", "#38bdf8", "#c084fc", "#94a3b8"];
 
-function componentColors(nodes) {
-  const groups = [...new Set(nodes.map((n) => n.dept || "other"))].sort();
-  const map = {};
-  for (const n of nodes) map[n.id] = COMPONENT_PALETTE[groups.indexOf(n.dept || "other") % COMPONENT_PALETTE.length];
-  return map;
-}
+export function KBView() {
+  const [graph, setGraph] = useState({ nodes: [], edges: [] });
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [dept, setDept] = useState("all");
+  const [cls, setCls] = useState("all");
+  const [isolate, setIsolate] = useState(false);
+  const [sel, setSel] = useState(null);
+  const [chunks, setChunks] = useState([]);
+  const [chunksLoading, setChunksLoading] = useState(false);
+  const [pinned, setPinned] = useState({});
+  const [err, setErr] = useState("");
+  const chunkReq = useRef(0);
 
-export function KBView(){
-  const [graph,setGraph]=useState({nodes:[],edges:[]});
-  const [q,setQ]=useState("");
-  const [dept,setDept]=useState("all");
-  const [sel,setSel]=useState(null);
-  const [chunks,setChunks]=useState([]);
-  const [pinned,setPinned]=useState({});
-  const [err,setErr]=useState("");
-
-  async function load(){
-    try{ setErr(""); setGraph(await api.getGraph()); }
-    catch(e){ setErr(e.message); }
+  async function load() {
+    try {
+      setErr("");
+      setGraph(await api.getGraph());
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
   }
-  useEffect(()=>{ load(); },[]);
+  useEffect(() => { load(); }, []);
 
-  const depts=useMemo(()=>["all",...new Set(graph.nodes.map(n=>n.dept))],[graph]);
-  // stable colors computed on the FULL graph so filtering never recolors
-  const colorMap=useMemo(()=>componentColors(graph.nodes),[graph.nodes]);
-  const visNodes=useMemo(()=>{
-    return graph.nodes.filter(n=>{
-      if(dept!=="all" && n.dept!==dept) return false;
-      if(q && !(n.title.toLowerCase().includes(q.toLowerCase()) || n.tags.some(t=>t.toLowerCase().includes(q.toLowerCase())))) return false;
-      return true;
-    });
-  },[graph,q,dept]);
-  const visEdges=useMemo(()=>{
-    const ids=new Set(visNodes.map(n=>n.id));
-    return graph.edges.filter(e=>ids.has(e.a)&&ids.has(e.b));
-  },[graph,visNodes]);
+  // Colors are derived from the FULL graph (departments sorted), so filtering,
+  // isolating and searching never recolor a node — the legend always matches.
+  const deptColors = useMemo(() => {
+    const ds = [...new Set(graph.nodes.map((n) => n.dept || "other"))].sort();
+    const m = {};
+    ds.forEach((d, i) => { m[d] = DEPT_PALETTE[i % DEPT_PALETTE.length]; });
+    return m;
+  }, [graph.nodes]);
 
-  async function openDoc(d){
+  const colorMap = useMemo(
+    () => Object.fromEntries(graph.nodes.map((n) => [n.id, deptColors[n.dept || "other"]])),
+    [graph.nodes, deptColors]
+  );
+
+  const deptCounts = useMemo(() => {
+    const m = {};
+    for (const n of graph.nodes) m[n.dept || "other"] = (m[n.dept || "other"] || 0) + 1;
+    return m;
+  }, [graph.nodes]);
+
+  const depts = useMemo(() => ["all", ...Object.keys(deptCounts)], [deptCounts]);
+  const classes = useMemo(
+    () => ["all", ...[...new Set(graph.nodes.map((n) => n.class).filter(Boolean))].sort()],
+    [graph.nodes]
+  );
+
+  const needle = q.trim().toLowerCase();
+  const filtering = needle !== "" || dept !== "all" || cls !== "all";
+
+  // matchIds drives dimming. Filtering dims instead of removing, so the shape
+  // of the whole knowledge base stays visible while you narrow focus (§8).
+  const matchIds = useMemo(() => {
+    if (!filtering) return null;
+    const s = new Set();
+    for (const n of graph.nodes) {
+      if (dept !== "all" && (n.dept || "other") !== dept) continue;
+      if (cls !== "all" && n.class !== cls) continue;
+      if (needle && !(n.title || "").toLowerCase().includes(needle)
+        && !(n.tags || []).some((t) => t.toLowerCase().includes(needle))) continue;
+      s.add(n.id);
+    }
+    return s;
+  }, [graph.nodes, dept, cls, needle, filtering]);
+
+  const hardFilter = isolate && matchIds;
+  const visNodes = useMemo(
+    () => (hardFilter ? graph.nodes.filter((n) => matchIds.has(n.id)) : graph.nodes),
+    [graph.nodes, hardFilter, matchIds]
+  );
+  const visEdges = useMemo(
+    () => (hardFilter ? graph.edges.filter((e) => matchIds.has(e.a) && matchIds.has(e.b)) : graph.edges),
+    [graph.edges, hardFilter, matchIds]
+  );
+
+  // Selection must survive a reload: keep the freshest copy of the doc.
+  const selDoc = useMemo(
+    () => (sel ? graph.nodes.find((n) => n.id === sel.id) || sel : null),
+    [sel, graph.nodes]
+  );
+
+  async function openDoc(d) {
+    if (!d) { setSel(null); return; }
     setSel(d);
-    try{
-      const r=await fetch(`${import.meta.env.VITE_API_URL||"https://22ed-2401-9640-1802-d8dc-2-2-2-1.ngrok-free.app"}/ask`,{method:"POST",headers:{"Content-Type":"application/json","X-Org-Id":api.getOrg(),"ngrok-skip-browser-warning":"true"},credentials:"include",body:JSON.stringify({text:d.title, retrieve:true})}).then(x=>x.json());
-      setChunks(r.evidence?.filter(e=>e.doc_id===d.id)||[]);
-    }catch{ setChunks([]); }
+    setChunks([]);
+    setChunksLoading(true);
+    const token = ++chunkReq.current;
+    try {
+      const r = await api.retrieveForDoc(d.title);
+      if (token !== chunkReq.current) return; // a newer selection won
+      setChunks((r.evidence || []).filter((e) => String(e.doc_id) === String(d.id)));
+    } catch {
+      if (token === chunkReq.current) setChunks([]);
+    } finally {
+      if (token === chunkReq.current) setChunksLoading(false);
+    }
   }
-  async function del(id){ if(!confirm("Delete doc "+id+"?")) return; await api.deleteDoc(id); setSel(null); load(); }
-  function pin(id,x,y){ setPinned(p=>({...p,[id]:{x,y}})); }
+
+  async function del(id) {
+    if (!confirm(`Delete document #${id}?`)) return;
+    await api.deleteDoc(id);
+    setSel(null);
+    setPinned((p) => { const n = { ...p }; delete n[id]; return n; });
+    load();
+  }
+
+  function pin(id, x, y) {
+    setPinned((p) => {
+      const n = { ...p };
+      if (x == null || y == null) delete n[id];
+      else n[id] = { x, y };
+      return n;
+    });
+  }
+
+  const matched = matchIds ? matchIds.size : graph.nodes.length;
 
   return (
-    <div style={{width:"100%"}}>
-      <div style={{display:"flex", gap:10, alignItems:"center", flexWrap:"wrap"}}>
-        <h2 style={{margin:0, fontFamily:"var(--sans)", fontSize:26, fontWeight:700, letterSpacing:"-0.02em", color:"var(--ink-app)"}}>Knowledge Base</h2>
-        <span className="badge" style={{background:"var(--glass-bg)", borderColor:"var(--glass-border)", color:"var(--text-muted)"}}>{graph.nodes.length} docs · {graph.edges.length} links</span>
-        <span style={{flex:1}}/>
-        <input className="input" style={{width:220, background:"var(--glass-bg)", borderColor:"var(--glass-border)"}} placeholder="search titles, tags…" value={q} onChange={e=>setQ(e.target.value)}/>
-        {depts.map(d=> <button key={d} className={`kb-chip${dept===d?" on":""}`} onClick={()=>setDept(d)}>{d}</button>)}
-      </div>
-      {err && <div className="card" style={{marginTop:12, color:"var(--danger)"}}>{err}</div>}
-      {!err && graph.nodes.length===0 && (
-        <div className="card" style={{marginTop:14, textAlign:"center", padding:40}}>
-          <div style={{width:18,height:18,borderRadius:"50%",border:"1px solid var(--line)",margin:"0 auto 10px"}}/>
-          <div>Ingest your first document</div>
-          <div className="small muted" style={{marginTop:4}}>It will appear here as a node, linked by shared equipment tags.</div>
+    <div className="kb-page">
+      <header className="kb-header">
+        <div className="kb-head-row">
+          <div className="kb-head-title">
+            <h2>Knowledge Base</h2>
+            <p>Documents as nodes, shared equipment tags as links. Hover to trace a link, click to inspect.</p>
+          </div>
+
+          <div className="kb-search">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.4" fill="none" />
+              <path d="M10.2 10.2 14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+            </svg>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search titles or equipment tags…"
+              aria-label="Search documents"
+            />
+            {q && (
+              <button type="button" className="kb-search-clear" onClick={() => setQ("")} aria-label="Clear search">
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="kb-filters">
+          <div className="kb-chip-group" role="group" aria-label="Filter by department">
+            {depts.map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`kb-chip${dept === d ? " on" : ""}`}
+                onClick={() => setDept(d)}
+              >
+                {d !== "all" && <span className="kb-dot" style={{ background: deptColors[d] }} />}
+                {d}
+                {d !== "all" && <span className="kb-chip-n">{deptCounts[d]}</span>}
+              </button>
+            ))}
+          </div>
+
+          {classes.length > 2 && (
+            <>
+              <span className="kb-filter-sep" />
+              <div className="kb-chip-group" role="group" aria-label="Filter by classification">
+                {classes.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`kb-chip quiet${cls === c ? " on" : ""}`}
+                    onClick={() => setCls(c)}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <span className="kb-filter-gap" />
+
+          {filtering && (
+            <span className="kb-match-note">
+              <strong>{matched}</strong> of {graph.nodes.length} match
+            </span>
+          )}
+          <label className={`kb-switch${isolate ? " on" : ""}`} title="Hide non-matching nodes instead of dimming them">
+            <input type="checkbox" checked={isolate} onChange={(e) => setIsolate(e.target.checked)} disabled={!filtering} />
+            <span className="kb-switch-track"><span className="kb-switch-thumb" /></span>
+            isolate
+          </label>
+          {filtering && (
+            <button className="kb-btn-quiet" onClick={() => { setQ(""); setDept("all"); setCls("all"); setIsolate(false); }}>
+              Clear
+            </button>
+          )}
+          <button className="kb-btn-quiet" onClick={load} title="Reload the graph from the server">
+            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5V6h-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      {err && <div className="card" style={{ color: "var(--danger)" }}>{err}</div>}
+
+      {loading && !graph.nodes.length && (
+        <div className="kb-skeleton" aria-label="Loading graph">
+          <div className="kb-skeleton-canvas" />
         </div>
       )}
-      {graph.nodes.length>0 && (
-        <div style={{marginTop:12, position:"relative"}}>
-          <GraphCanvas nodes={visNodes} edges={visEdges} selectedId={sel?.id}
-            colorMap={colorMap} onSelect={openDoc} pinned={pinned} onPin={pin}/>
-          <div className={`drawer${sel?" open":""}`}>
-            {!sel && <div style={{padding:16}} className="muted">Select a node.</div>}
-            {sel && (<>
-              <div className="drawer-head">
-                <div><strong>{sel.title}</strong><div className="small muted mono">id {sel.id} · {sel.dept} · {sel.class} · {sel.chunks} chunks</div>
-                <div className="small muted mono" style={{marginTop:4}}>{sel.tags.join("  ")||"no equipment tags"}</div></div>
-                <button className="btn" onClick={()=>setSel(null)}>×</button>
-              </div>
-              <div style={{padding:12, display:"grid", gap:8}}>
-                {chunks.map((c,i)=>(<div key={i} className="card" style={{padding:10}}><div className="small muted">chunk {i}</div><div style={{whiteSpace:"pre-wrap", fontSize:13}}>{c.content}</div></div>))}
-                {!chunks.length && <div className="small muted">No chunks loaded.</div>}
-                <button className="btn" style={{color:"var(--risk-critical)"}} onClick={()=>del(sel.id)}>Delete document</button>
-              </div>
-            </>)}
+
+      {!loading && !err && !graph.nodes.length && (
+        <div className="card kb-empty">
+          <div className="kb-empty-mark" />
+          <div>Ingest your first document</div>
+          <div className="small muted" style={{ marginTop: 4 }}>
+            It will appear here as a node, linked to others by shared equipment tags.
           </div>
+        </div>
+      )}
+
+      {graph.nodes.length > 0 && (
+        <div className={`kb-body${selDoc ? " has-sel" : ""}`}>
+          <div className="kb-graph-wrap">
+            <GraphCanvas
+              nodes={visNodes}
+              edges={visEdges}
+              selectedId={selDoc?.id}
+              matchIds={isolate ? null : matchIds}
+              colorMap={colorMap}
+              deptColors={deptColors}
+              activeDept={dept}
+              deptCounts={deptCounts}
+              pinned={pinned}
+              onSelect={openDoc}
+              onPin={pin}
+              onDeptClick={(d) => setDept((cur) => (cur === d ? "all" : d))}
+              onUnpinAll={() => setPinned({})}
+            />
+          </div>
+          <GraphInspector
+            doc={selDoc}
+            nodes={graph.nodes}
+            edges={graph.edges}
+            colorMap={colorMap}
+            deptColors={deptColors}
+            chunks={chunks}
+            chunksLoading={chunksLoading}
+            onSelect={openDoc}
+            onClose={() => setSel(null)}
+            onDelete={(d) => del(d.id)}
+          />
         </div>
       )}
     </div>

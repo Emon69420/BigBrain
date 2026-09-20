@@ -29,6 +29,8 @@ export async function ingestDoc({title,content,dept="operations",docClass="open"
 export async function listDocs(){ return get("/docs"); }
 export async function deleteDoc(id){ const r=await fetch(`${BASE}/docs/${id}`,{method:"DELETE",headers:headers(),...withCreds()}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||`Delete failed`); return d; }
 export async function getGraph(){ return get("/graph"); }
+// KB inspector: pull the stored chunks behind one document (retrieval only, no generation).
+export async function retrieveForDoc(title){ return post("/ask",{text:title, retrieve:true}); }
 // auth
 export async function register(email,name,password){ return post("/auth/register",{email,name,password}); }
 export async function login(email,password){ return post("/auth/login",{email,password}); }

@@ -10,17 +10,17 @@ docs_bp = Blueprint("docs", __name__)
 def _require_org():
     uid = session.get("user_id")
     if not uid:
-        return False, jsonify({"error": "not authenticated"}), 401
+        return False, {"error": "not authenticated"}, 401
     org = g.get("org_id", "default")
     if not _is_member(uid, org):
-        return False, jsonify({"error": "not a member of this org"}), 403
+        return False, {"error": "not a member of this org"}, 403
     return True, org, uid
 
 
 def handle_ingest(data):
-    ok, res, _ = _require_org()
+    ok, res, status = _require_org()
     if not ok:
-        return res, res.status_code
+        return res, status
     org_id = res
     content = ((data or {}).get("content") or "").strip()
     if not content:
@@ -43,17 +43,17 @@ def ingest():
 
 @docs_bp.get("/docs")
 def list_all():
-    ok, res, _ = _require_org()
+    ok, res, status = _require_org()
     if not ok:
-        return res
+        return jsonify(res), status
     return jsonify({"org_id": res, "docs": list_docs(res)})
 
 
 @docs_bp.delete("/docs/<int:doc_id>")
 def remove(doc_id):
-    ok, res, _ = _require_org()
+    ok, res, status = _require_org()
     if not ok:
-        return res
+        return jsonify(res), status
     if not delete_doc(doc_id, res):
         return jsonify({"error": "not found"}), 404
     return jsonify({"ok": True})
@@ -61,8 +61,8 @@ def remove(doc_id):
 
 @docs_bp.get("/graph")
 def graph():
-    ok, res, _ = _require_org()
+    ok, res, status = _require_org()
     if not ok:
-        return res
+        return jsonify(res), status
     dept = request.args.get("dept", "operations")
     return jsonify({"org_id": res, **get_graph(res, dept)})
